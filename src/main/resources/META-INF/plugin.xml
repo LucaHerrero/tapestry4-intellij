@@ -1,0 +1,53 @@
+<idea-plugin>
+    <id>com.herreromarcos.idea.tapestry4plugin</id>
+    <name>Tapestry 4 Support</name>
+    <vendor>Luca Herrero Marcos</vendor>
+
+    <description><![CDATA[
+    Support for <b>Apache Tapestry 4.0 / 4.1</b> web applications.
+    <ul>
+      <li>HTML templates: <code>jwcid</code> is recognised; completion and navigation for declared component ids
+          (<code>jwcid="foo"</code>) and implicit components (<code>jwcid="@Insert"</code>, <code>jwcid="id@contrib:Table"</code>)</li>
+      <li>Component parameters offered as attributes, required parameters checked</li>
+      <li>Binding prefixes: <code>ognl:</code> (property chains resolved against the page class), <code>listener:</code>,
+          <code>message:</code>, <code>asset:</code>, <code>bean:</code>, <code>component:</code></li>
+      <li>Specifications (.page, .jwc, .application, .library): bundled DTD, component types, parameter names,
+          classes, specification paths, injected pages</li>
+      <li>Navigation between template, specification and Java class (gutter icons, Go to Related)</li>
+      <li>Component types from Framework.library, project libraries (e.g. contrib:) and loose .jwc files</li>
+    </ul>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.xml</depends>
+    <depends>com.intellij.java</depends>
+    <depends>com.intellij.properties</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Tapestry-Spezifikationen und Script-Dateien sind XML -->
+        <fileType name="XML" extensions="jwc;page;application;library;script"/>
+        <standardResourceProvider implementation="com.herreromarcos.idea.tapestry4plugin.dtd.TapestryResourceProvider"/>
+        <iconProvider implementation="com.herreromarcos.idea.tapestry4plugin.navigation.TapestryIconProvider" order="first"/>
+
+        <!-- Referenzen, Completion, Prüfungen (XML gilt auch für HTML/XHTML) -->
+        <psi.referenceContributor language="XML" implementation="com.herreromarcos.idea.tapestry4plugin.references.TapestryReferenceContributor"/>
+        <xml.attributeDescriptorsProvider implementation="com.herreromarcos.idea.tapestry4plugin.html.TapestryAttributeDescriptorsProvider"/>
+        <completion.contributor language="XML" implementationClass="com.herreromarcos.idea.tapestry4plugin.highlighting.TapestryCompletionContributor"/>
+        <annotator language="XML" implementationClass="com.herreromarcos.idea.tapestry4plugin.highlighting.TapestryAnnotator"/>
+        <!-- Find Usages / Rename von Gettern findet "ognl:userName" -->
+        <methodReferencesSearch implementation="com.herreromarcos.idea.tapestry4plugin.references.OgnlPropertyReferenceSearcher"/>
+
+        <!-- Navigation -->
+        <codeInsight.lineMarkerProvider language="JAVA" implementationClass="com.herreromarcos.idea.tapestry4plugin.navigation.TapestryClassLineMarkerProvider"/>
+        <codeInsight.lineMarkerProvider language="XML" implementationClass="com.herreromarcos.idea.tapestry4plugin.navigation.TapestrySpecLineMarkerProvider"/>
+        <gotoRelatedProvider implementation="com.herreromarcos.idea.tapestry4plugin.navigation.TapestryGotoRelatedProvider"/>
+    </extensions>
+
+    <actions>
+        <group id="Tapestry4.NewGroup">
+            <action id="Tapestry4.NewPage" class="com.herreromarcos.idea.tapestry4plugin.actions.NewTapestryElementAction$Page"/>
+            <action id="Tapestry4.NewComponent" class="com.herreromarcos.idea.tapestry4plugin.actions.NewTapestryElementAction$Component"/>
+            <add-to-group group-id="NewGroup" anchor="last"/>
+        </group>
+    </actions>
+</idea-plugin>
