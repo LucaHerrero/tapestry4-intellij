@@ -1,3 +1,7 @@
+# Baut das Plugin bei jedem Push auf master und veröffentlicht es als GitHub Release.
+# Tag und Release-Name kommen aus der Version in build.gradle.kts (z.B. 0.2.0 → v0.2.0).
+# Existiert das Release zu dieser Version bereits, wird nur gebaut und getestet – für ein
+# neues Release muss die Version in build.gradle.kts erhöht werden.
 name: Build & Release
 
 on:

@@ -5,11 +5,12 @@ import com.intellij.javaee.StandardResourceProvider;
 
 /**
  * Bindet die Original-DTDs an ihre Public-/System-IDs, alle unverändert aus tapestry-framework-4.1.6.jar:
- * Spezifikationen 4.0/4.1 (org/apache/tapestry/parse/) und Scripts 3.0/4.0 (org/apache/tapestry/script/).
+ * Spezifikationen 3.0/4.0/4.1 (org/apache/tapestry/parse/) und Scripts 3.0/4.0 (org/apache/tapestry/script/).
  * Damit bekommen .page/.jwc/.application/.library/.script Tag-/Attribut-Completion und Validierung,
  * ohne dass die DTD aus dem Netz geladen werden muss.
  */
 public class TapestryResourceProvider implements StandardResourceProvider {
+    private static final String DTD_3_0 = "dtd/Tapestry_3_0.dtd";
     private static final String DTD_4_0 = "dtd/Tapestry_4_0.dtd";
     private static final String DTD_4_1 = "dtd/Tapestry_4_1.dtd";
     private static final String SCRIPT_3_0 = "dtd/Script_3_0.dtd";
@@ -18,6 +19,9 @@ public class TapestryResourceProvider implements StandardResourceProvider {
     @Override
     public void registerResources(final ResourceRegistrar registrar) {
         final ClassLoader loader = getClass().getClassLoader();
+        // Tapestry 3.0 – laut Doku von Tapestry 4.0 weiterhin unterstützt
+        registrar.addStdResource("-//Apache Software Foundation//Tapestry Specification 3.0//EN", DTD_3_0, loader);
+        registrar.addStdResource("http://jakarta.apache.org/tapestry/dtd/Tapestry_3_0.dtd", DTD_3_0, loader);
         // Tapestry 4.0
         registrar.addStdResource("-//Apache Software Foundation//Tapestry Specification 4.0//EN", DTD_4_0, loader);
         registrar.addStdResource("http://jakarta.apache.org/tapestry/dtd/Tapestry_4_0.dtd", DTD_4_0, loader);

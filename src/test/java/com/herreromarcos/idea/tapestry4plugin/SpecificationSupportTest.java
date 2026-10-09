@@ -1,12 +1,12 @@
 package com.herreromarcos.idea.tapestry4plugin;
 
+import com.herreromarcos.idea.tapestry4plugin.model.TapestryModel;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.xml.XmlAttributeValue;
 import com.intellij.psi.xml.XmlFile;
 import com.intellij.psi.xml.XmlTag;
-import com.herreromarcos.idea.tapestry4plugin.model.TapestryModel;
 
 import java.util.List;
 
@@ -14,22 +14,22 @@ import java.util.List;
 public class SpecificationSupportTest extends TapestryTestCase {
 
     public void testBindingNameResolvesToParameter() {
-        configure("Other.page", DOCTYPE_4_0.formatted("page-specification") + """
+        configure("Other.page", page("""
                 <page-specification class="com.example.Home">
                   <component id="x" type="Insert"><binding name="val<caret>ue" value="userName"/></component>
                 </page-specification>
-                """);
+                """));
         final PsiElement target = resolveAtCaret();
         assertInstanceOf(target, XmlAttributeValue.class);
         assertEquals("Insert.jwc", target.getContainingFile().getName());
     }
 
     public void testDtd40TagCompletion() {
-        configure("Third.page", DOCTYPE_4_0.formatted("page-specification") + """
+        configure("Third.page", page("""
                 <page-specification>
                   <<caret>
                 </page-specification>
-                """);
+                """));
         final List<String> items = completeAtCaret();
         assertTrue(items.toString(), items.containsAll(List.of("component", "inject")));
     }

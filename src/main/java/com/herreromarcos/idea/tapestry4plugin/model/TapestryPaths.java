@@ -5,10 +5,13 @@ import com.intellij.openapi.roots.OrderEnumerator;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.herreromarcos.idea.tapestry4plugin.TapestryConstants.WEB_INF;
 
@@ -21,8 +24,9 @@ public class TapestryPaths {
      * Löst einen specification-path auf: relativ zur Datei, oder absolut ("/...") gegen Web-Root und Classpath.
      * Präfixe "classpath:" und "context:" werden ignoriert.
      */
-    public static @Nullable VirtualFile resolve(@NotNull Project project, @NotNull String path, @NotNull VirtualFile relativeTo) {
-        path = StringUtil.trimStart(StringUtil.trimStart(path.trim(), "classpath:"), "context:");
+    public static @Nullable VirtualFile resolve(@NotNull final Project project, @NotNull final String specificationPath,
+                                                @NotNull final VirtualFile relativeTo) {
+        final String path = StringUtils.removeStart(StringUtils.removeStart(specificationPath.trim(), "classpath:"), "context:");
         if (!path.startsWith("/")) {
             final VirtualFile parent = relativeTo.getParent();
             return parent != null ? parent.findFileByRelativePath(path) : null;
@@ -68,6 +72,31 @@ public class TapestryPaths {
             }
         }
         return null;
+    }
+
+    /**
+     * Logischer Seitenname mit Ordnern, z.B. {@code admin/EditUser}: relativ zu WEB-INF (Spezifikationen)
+     * bzw. zum Web-Root (Templates), ohne Endung; {@code null} außerhalb einer Web-Anwendung.
+     */
+    static @Nullable String logicalPagePath(@NotNull final VirtualFile file) {
+        final String belowWebInf = pathBelowWebInf(file);
+        if (belowWebInf != null) return belowWebInf;
+        final VirtualFile webRoot = webRoot(file);
+        final String relative = webRoot != null ? VfsUtilCore.getRelativePath(file, webRoot, '/') : null;
+        return relative != null ? StringUtil.trimEnd(relative, "." + file.getExtension()) : null;
+    }
+
+    /**
+     * Optionales Locale-Suffix im Dateinamen ({@code _de}, {@code _de_AT}, {@code _en_US_POSIX}) – nicht aber
+     * {@code _Admin}, das wäre ein anderer Name.
+     */
+    public static final String LOCALE_SUFFIX = "(_[a-z]{2,3}(_([A-Z]{2}|[0-9]{3})(_\\w+)?)?)";
+    private static final Pattern LOCALIZED_NAME = Pattern.compile("(.+?)" + LOCALE_SUFFIX);
+
+    /** {@code Home_de} → {@code Home}; Namen ohne Locale-Suffix bleiben unverändert. */
+    public static @NotNull String stripLocale(@NotNull final String baseName) {
+        final Matcher matcher = LOCALIZED_NAME.matcher(baseName);
+        return matcher.matches() ? matcher.group(1) : baseName;
     }
 
     /** Kandidat mit dem zur Referenz ähnlichsten Pfad. */

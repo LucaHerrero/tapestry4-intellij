@@ -1,11 +1,11 @@
 package com.herreromarcos.idea.tapestry4plugin.references;
 
+import com.herreromarcos.idea.tapestry4plugin.TapestryIcons;
+import com.herreromarcos.idea.tapestry4plugin.model.TapestryRegistry;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
-import com.herreromarcos.idea.tapestry4plugin.TapestryIcons;
-import com.herreromarcos.idea.tapestry4plugin.model.TapestryRegistry;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

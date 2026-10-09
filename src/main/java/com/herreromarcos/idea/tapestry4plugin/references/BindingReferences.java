@@ -1,40 +1,62 @@
 package com.herreromarcos.idea.tapestry4plugin.references;
 
+import com.herreromarcos.idea.tapestry4plugin.model.BindingExpression;
+import com.herreromarcos.idea.tapestry4plugin.model.OgnlExpression;
 import com.intellij.openapi.util.TextRange;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiReference;
-import com.herreromarcos.idea.tapestry4plugin.model.BindingExpression;
+import com.intellij.psi.impl.source.resolve.reference.impl.providers.JavaClassReferenceProvider;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
+import javax.lang.model.SourceVersion;
 
 import static com.herreromarcos.idea.tapestry4plugin.TapestryConstants.*;
+import static com.herreromarcos.idea.tapestry4plugin.references.TapestryReferenceBase.single;
 
 /** Erzeugt die Referenzen für Binding-Ausdrücke ({@code prefix:expression}). */
 class BindingReferences {
-    private static final Set<String> OGNL_KEYWORDS = Set.of("true", "false", "null", "new", "instanceof", "and", "or", "not",
-            "in", "eq", "neq", "lt", "gt", "lte", "gte", "shl", "shr", "ushr", "bor", "xor", "band");
-
     private BindingReferences() {
     }
 
     /**
      * @param text          Attributwert (ohne Anführungszeichen)
      * @param offset        Offset von {@code text} innerhalb von {@code element}
-     * @param defaultPrefix Präfix, wenn keines angegeben ist ("ognl" in Spezifikationen, {@code null} = Literal im Template)
+     * @param defaultPrefix Präfix, wenn keines angegeben ist (Spezifikation: "ognl" bzw. default-binding-prefix, Template: {@code null} = Literal)
      */
     static PsiReference @NotNull [] create(@NotNull final PsiElement element, @NotNull final String text, final int offset,
                                            @Nullable final String defaultPrefix) {
-        final BindingExpression binding = BindingExpression.parse(text);
-        final String prefix = binding.prefixOr(defaultPrefix);
-        if (prefix == null) return PsiReference.EMPTY_ARRAY;
+        final BindingExpression binding = BindingExpression.parse(text, element);
+        final List<PsiReference> result = new ArrayList<>();
+        final TextRange prefixRange = prefixRange(binding, offset);
+        if (binding.registeredPrefix() != null && !PREFIX_HIVEMIND.equals(binding.prefix())) {
+            result.add(new BindingPrefixReference(element, prefixRange));
+        } else if (binding.unregisteredPrefix() != null && PREFIX_OGNL.equals(defaultPrefix)) {
+            // "foo:bar" ohne registriertes Präfix wäre ein ungültiger OGNL-Ausdruck – nur das Präfix melden
+            return single(new BindingPrefixReference(element, prefixRange));
+        }
+        final String prefix = binding.effectivePrefix(defaultPrefix);
+        if (prefix != null) {
+            result.addAll(List.of(createForPrefix(element, prefix, binding.expression(), offset + binding.expressionStart())));
+        }
+        return result.toArray(PsiReference.EMPTY_ARRAY);
+    }
 
-        final String expression = binding.expression();
-        final int expressionOffset = offset + binding.expressionStart();
+    /** Bereich des (registrierten oder unregistrierten) Präfixes ohne Doppelpunkt. */
+    private static TextRange prefixRange(final BindingExpression binding, final int offset) {
+        final String text = binding.text();
+        final String name = binding.registeredPrefix() != null ? binding.registeredPrefix() : StringUtil.notNullize(binding.unregisteredPrefix());
+        return TextRange.from(offset + text.length() - text.stripLeading().length(), name.length());
+    }
+
+    private static PsiReference[] createForPrefix(final PsiElement element, final String prefix, final String expression,
+                                                  final int expressionOffset) {
         if (PREFIX_OGNL.equals(prefix)) return createOgnl(element, expression, expressionOffset);
+        if (PREFIX_VALIDATORS.equals(prefix)) return createValidators(element, expression, expressionOffset);
 
         final String trimmed = expression.trim();
         final int leading = expression.length() - expression.stripLeading().length();
@@ -42,69 +64,80 @@ class BindingReferences {
         final PsiReference reference = switch (prefix) {
             case PREFIX_LISTENER -> isSimpleName(trimmed) ? new ListenerReference(element, range) : null;
             case PREFIX_MESSAGE -> new MessageKeyReference(element, range);
-            case PREFIX_ASSET -> new SpecChildReference(element, range, TAG_ASSET, ATTR_NAME);
-            case PREFIX_BEAN -> new SpecChildReference(element, range, TAG_BEAN, ATTR_NAME);
+            case PREFIX_ASSET -> new SpecChildReference(element, range, SpecChildReference.Kind.ASSET);
+            case PREFIX_BEAN -> new SpecChildReference(element, range, SpecChildReference.Kind.BEAN);
             case PREFIX_COMPONENT -> new ComponentIdReference(element, range, false);
+            case PREFIX_STATE -> new StateObjectReference(element, range);
             default -> null;
         };
-        return reference != null ? new PsiReference[]{reference} : PsiReference.EMPTY_ARRAY;
+        return single(reference);
     }
 
     /**
-     * Erkennt führende Eigenschaftsketten wie {@code user.address.city} oder {@code items.size()} und
-     * erzeugt pro Segment eine Referenz. Komplexere OGNL-Ausdrücke werden ab der ersten unbekannten Stelle ignoriert.
+     * OGNL-Ausdruck: pro Glied jeder auflösbaren Kette eine Referenz ({@link OgnlExpression}), dazu Klassennamen aus
+     * {@code new}, {@code instanceof} und {@code @Klasse@member}.
      */
     static PsiReference[] createOgnl(final PsiElement element, final String expr, final int offset) {
+        final OgnlExpression ognl = OgnlExpression.parse(expr);
+        final OgnlExpression.SyntaxError syntaxError = ognl.syntaxError();
+        if (syntaxError != null) return single(new OgnlSyntaxErrorReference(element, syntaxError.range().shiftRight(offset), syntaxError.message()));
         final List<PsiReference> result = new ArrayList<>();
-        final int n = expr.length();
-        int i = 0;
-        while (i < n && Character.isWhitespace(expr.charAt(i))) i++;
-        if (i < n && (expr.charAt(i) == '#' || expr.charAt(i) == '@')) return PsiReference.EMPTY_ARRAY;
+        for (final OgnlExpression.Chain chain : ognl.chains()) {
+            OgnlPropertyReference previous = null;
+            for (final OgnlExpression.Segment segment : chain.segments()) {
+                final String staticClass = previous == null && chain.rootKind() == OgnlExpression.RootKind.STATIC ? chain.staticClass() : null;
+                final OgnlPropertyReference reference = new OgnlPropertyReference(element, segment.range().shiftRight(offset),
+                        previous, staticClass, segment.call(), segment.indexCount());
+                result.add(reference);
+                previous = reference;
+            }
+        }
+        for (final OgnlExpression.ClassName className : ognl.classNames()) {
+            final JavaClassReferenceProvider provider = new JavaClassReferenceProvider();
+            // einfache Namen löst OGNL über java.lang auf – das kann der Provider nicht, daher dort nur weich
+            provider.setSoft(!className.name().contains("."));
+            result.addAll(List.of(provider.getReferencesByString(className.name(), element, offset + className.range().getStartOffset())));
+        }
+        result.sort(Comparator.comparingInt(reference -> reference.getRangeInElement().getStartOffset()));
+        return result.toArray(PsiReference.EMPTY_ARRAY);
+    }
 
-        OgnlPropertyReference previous = null;
-        while (true) {
-            final int start = i;
-            if (i < n && Character.isJavaIdentifierStart(expr.charAt(i))) {
-                while (i < n && Character.isJavaIdentifierPart(expr.charAt(i))) i++;
+    /**
+     * {@code validators:required,email[%email-format],minLength=20[Text],$myValidator} (User's Guide, "Input Validation"):
+     * Einträge werden an Kommas außerhalb von {@code [...]} getrennt; {@code $name} verweist auf eine {@code <bean>},
+     * eine Meldung {@code [%key]} auf einen Message-Key.
+     */
+    static PsiReference[] createValidators(final PsiElement element, final String expr, final int offset) {
+        final List<PsiReference> result = new ArrayList<>();
+        int depth = 0;
+        int entryStart = 0;
+        for (int i = 0; i <= expr.length(); i++) {
+            final char c = i < expr.length() ? expr.charAt(i) : ',';
+            if (c == '[') depth++;
+            else if (c == ']' && depth > 0) depth--;
+            else if (c == ',' && depth == 0) {
+                addValidatorReferences(element, expr.substring(entryStart, i), offset + entryStart, result);
+                entryStart = i + 1;
             }
-            final String name = expr.substring(start, i);
-            if (name.isEmpty()) {
-                // leeres Segment am Ende ("ognl:" oder "user.") → Referenz nur für die Completion
-                if (i == n) result.add(new OgnlPropertyReference(element, TextRange.from(offset + start, 0), previous, false));
-                break;
-            }
-            if (previous == null && OGNL_KEYWORDS.contains(name)) break;
-            final boolean call = i < n && expr.charAt(i) == '(';
-            final OgnlPropertyReference reference = new OgnlPropertyReference(element, TextRange.create(offset + start, offset + i), previous, call);
-            result.add(reference);
-            previous = reference;
-            if (call) {
-                i = skipArguments(expr, i);
-                if (i < 0) break;
-            }
-            if (i >= n || expr.charAt(i) != '.') break;
-            i++;
         }
         return result.toArray(PsiReference.EMPTY_ARRAY);
     }
 
-    /** @return Index hinter der schließenden Klammer oder -1, wenn sie fehlt. */
-    private static int skipArguments(final String expr, final int openParen) {
-        int depth = 0;
-        for (int i = openParen; i < expr.length(); i++) {
-            final char c = expr.charAt(i);
-            if (c == '(') depth++;
-            else if (c == ')' && --depth == 0) return i + 1;
+    private static void addValidatorReferences(final PsiElement element, final String entry, final int offset, final List<PsiReference> result) {
+        final int leading = entry.length() - entry.stripLeading().length();
+        final int messageStart = entry.indexOf('[');
+        final String head = (messageStart >= 0 ? entry.substring(0, messageStart) : entry).trim();
+        if (head.startsWith("$") && head.length() > 1) {
+            result.add(new SpecChildReference(element, TextRange.from(offset + leading + 1, head.length() - 1), SpecChildReference.Kind.BEAN));
         }
-        return -1;
+        final int messageEnd = messageStart >= 0 ? entry.indexOf(']', messageStart) : -1;
+        if (messageEnd > messageStart + 2 && entry.charAt(messageStart + 1) == '%') {
+            result.add(new MessageKeyReference(element, TextRange.create(offset + messageStart + 2, offset + messageEnd)));
+        }
     }
 
+    /** Leer (für die Completion) oder ein Java-Bezeichner. */
     private static boolean isSimpleName(final String s) {
-        if (s.isEmpty()) return true;
-        if (!Character.isJavaIdentifierStart(s.charAt(0))) return false;
-        for (int i = 1; i < s.length(); i++) {
-            if (!Character.isJavaIdentifierPart(s.charAt(i))) return false;
-        }
-        return true;
+        return s.isEmpty() || SourceVersion.isIdentifier(s);
     }
 }

@@ -1,5 +1,8 @@
 package com.herreromarcos.idea.tapestry4plugin.references;
 
+import com.herreromarcos.idea.tapestry4plugin.TapestryConstants;
+import com.herreromarcos.idea.tapestry4plugin.TapestryIcons;
+import com.herreromarcos.idea.tapestry4plugin.model.TapestryRegistry;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.lang.annotation.HighlightSeverity;
@@ -8,9 +11,7 @@ import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
 import com.intellij.util.IncorrectOperationException;
-import com.herreromarcos.idea.tapestry4plugin.TapestryConstants;
-import com.herreromarcos.idea.tapestry4plugin.TapestryIcons;
-import com.herreromarcos.idea.tapestry4plugin.model.TapestryRegistry;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -46,7 +47,7 @@ public class ComponentTypeReference extends TapestryReferenceBase {
     public PsiElement handleElementRename(@NotNull final String newElementName) throws IncorrectOperationException {
         final String value = getValue();
         final String newName = StringUtil.trimEnd(newElementName, "." + TapestryConstants.EXT_COMPONENT);
-        final int separator = Math.max(value.lastIndexOf('/'), value.lastIndexOf(':'));
+        final int separator = StringUtils.lastIndexOfAny(value, "/", ":");
         return super.handleElementRename(separator >= 0 ? value.substring(0, separator + 1) + newName : newName);
     }
 

@@ -1,5 +1,7 @@
 package com.herreromarcos.idea.tapestry4plugin;
 
+import com.herreromarcos.idea.tapestry4plugin.references.BindingPrefixReference;
+import com.herreromarcos.idea.tapestry4plugin.references.TapestryReference;
 import com.intellij.codeInspection.htmlInspections.HtmlUnknownAttributeInspection;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.psi.PsiElement;
@@ -8,7 +10,6 @@ import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiReference;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.psi.xml.XmlAttributeValue;
-import com.herreromarcos.idea.tapestry4plugin.references.TapestryReference;
 
 import java.util.Arrays;
 import java.util.List;
@@ -66,12 +67,12 @@ public class TemplateSupportTest extends TapestryTestCase {
 
     public void testAssetResolves() {
         configureTemplate("<img jwcid=\"@Any\" src=\"asset:lo<caret>go\"/>");
-        // HTML legt auf src zusätzlich eine eigene URL-Referenz – gezielt die Tapestry-Referenz prüfen
+        // HTML legt auf src zusätzlich eine eigene URL-Referenz – gezielt die Asset-Referenz prüfen
         final XmlAttributeValue value = PsiTreeUtil.getParentOfType(
                 myFixture.getFile().findElementAt(myFixture.getCaretOffset()), XmlAttributeValue.class);
         assertNotNull(value);
         final PsiElement target = Arrays.stream(value.getReferences())
-                .filter(reference -> reference instanceof TapestryReference)
+                .filter(reference -> reference instanceof TapestryReference && !(reference instanceof BindingPrefixReference))
                 .findFirst().map(PsiReference::resolve).orElse(null);
         assertInstanceOf(target, XmlAttributeValue.class);
         assertEquals("logo", ((XmlAttributeValue) target).getValue());

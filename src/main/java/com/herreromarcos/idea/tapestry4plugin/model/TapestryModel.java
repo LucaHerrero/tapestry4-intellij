@@ -30,7 +30,6 @@ import static com.herreromarcos.idea.tapestry4plugin.TapestryConstants.*;
  */
 public class TapestryModel {
     private static final Key<CachedValue<Map<String, List<VirtualFile>>>> SPECS_BY_CLASS_KEY = Key.create("tapestry4.specsByClass");
-    private static final Key<CachedValue<Map<String, List<String>>>> META_KEY = Key.create("tapestry4.applicationMeta");
 
     private TapestryModel() {
     }
@@ -43,6 +42,22 @@ public class TapestryModel {
         return CachedValuesManager.getCachedValue(file, () ->
                 CachedValueProvider.Result.create(computeContext(file),
                         PsiModificationTracker.MODIFICATION_COUNT, ProjectRootModificationTracker.getInstance(file.getProject())));
+    }
+
+    /**
+     * Kontext einer Seiten-/Komponentenklasse (für Referenzen in Annotationen): über die Spezifikation, deren
+     * class-Attribut auf die Klasse zeigt, sonst über das Template per *-class-packages, sonst nur die Klasse.
+     */
+    public static @NotNull TapestryContext getContext(@NotNull final PsiClass psiClass) {
+        return CachedValuesManager.getCachedValue(psiClass, () -> {
+            final XmlFile spec = ContainerUtil.getFirstItem(findSpecsForClass(psiClass));
+            final PsiFile template = spec == null ? ContainerUtil.getFirstItem(findTemplatesByClassConvention(psiClass)) : null;
+            final TapestryContext ctx = spec != null ? getContext(spec)
+                    : template != null ? getContext(template)
+                    : new TapestryContext(null, null, psiClass, psiClass, SpecKind.PAGE);
+            return CachedValueProvider.Result.create(ctx,
+                    PsiModificationTracker.MODIFICATION_COUNT, ProjectRootModificationTracker.getInstance(psiClass.getProject()));
+        });
     }
 
     private static TapestryContext computeContext(final PsiFile file) {
@@ -66,52 +81,89 @@ public class TapestryModel {
     }
 
     /**
-     * Klasse aus dem class-Attribut, sonst per Namenskonvention über *-class-packages der .application.
+     * Klassensuche laut User's Guide ("Determining the Page Class"):
+     * <ol>
+     *   <li>class-Attribut der Spezifikation</li>
+     *   <li>Pakete aus *-class-packages, mit dem Seitennamen inkl. Ordnern ({@code admin/EditUser} → {@code admin.EditUser})</li>
+     *   <li>das Default-Paket</li>
+     *   <li>für Seiten: {@code org.apache.tapestry.default-page-class}</li>
+     * </ol>
      * Ohne Spezifikation ist unklar, ob Seite oder Komponente – dann werden beide Paketlisten durchsucht.
      */
-    private static @Nullable PsiClass findDeclaredClass(@Nullable XmlFile spec, @NotNull PsiFile owner, @NotNull SpecKind kind) {
+    private static @Nullable PsiClass findDeclaredClass(@Nullable final XmlFile spec, @NotNull final PsiFile owner,
+                                                       @NotNull final SpecKind kind) {
         final XmlTag root = SpecXml.rootTag(spec);
         final String className = root != null ? SpecXml.attr(root, ATTR_CLASS) : null;
         if (className != null) {
             final PsiClass cls = JavaClasses.find(className, spec);
             if (cls != null) return cls;
         }
-        final String simpleName = TapestryFiles.baseName(owner);
-        if (simpleName == null) return null;
+        final List<String> names = logicalClassNames(owner);
+        if (names.isEmpty()) return null;
         final List<String> metaKeys = spec == null ? List.of(META_PAGE_PACKAGES, META_COMPONENT_PACKAGES)
                 : List.of(kind == SpecKind.COMPONENT ? META_COMPONENT_PACKAGES : META_PAGE_PACKAGES);
-        final Map<String, List<String>> meta = getApplicationMeta(owner.getProject());
         for (final String metaKey : metaKeys) {
-            for (final String pkg : meta.getOrDefault(metaKey, List.of())) {
-                final PsiClass cls = JavaClasses.find("%s.%s".formatted(pkg, simpleName), owner);
+            for (final String pkg : TapestryConfiguration.getNamespaceMeta(owner, metaKey)) {
+                for (final String name : names) {
+                    final PsiClass cls = JavaClasses.find("%s.%s".formatted(pkg, name), owner);
+                    if (cls != null) return cls;
+                }
+            }
+        }
+        for (final String name : names) {
+            final PsiClass cls = JavaClasses.find(name, owner);
+            if (cls != null) return cls;
+        }
+        if (kind == SpecKind.PAGE) {
+            for (final String defaultClass : TapestryConfiguration.getNamespaceMeta(owner, META_DEFAULT_PAGE_CLASS)) {
+                final PsiClass cls = JavaClasses.find(defaultClass, owner);
                 if (cls != null) return cls;
             }
         }
         return null;
     }
 
+    /** Seitenname als Klassenname: zuerst mit Ordnern ({@code admin.EditUser}), dann nur der einfache Name. */
+    private static List<String> logicalClassNames(final PsiFile owner) {
+        final VirtualFile vf = owner.getOriginalFile().getVirtualFile();
+        if (vf == null) return List.of();
+        final Set<String> names = new LinkedHashSet<>();
+        final String pagePath = TapestryPaths.logicalPagePath(vf);
+        if (pagePath != null) names.add(TapestryPaths.stripLocale(pagePath).replace('/', '.'));
+        names.add(TapestryPaths.stripLocale(vf.getNameWithoutExtension()));
+        return new ArrayList<>(names);
+    }
+
     // ------------------------------------------------------------------ Template <-> Spezifikation
 
-    /** Spezifikation gleichen Namens (.page oder .jwc) mit dem ähnlichsten Pfad. */
-    public static @Nullable XmlFile findSpecForTemplate(@NotNull PsiFile template) {
+    /**
+     * Spezifikation gleichen Namens (.page oder .jwc) mit dem ähnlichsten Pfad. Lokalisierte Templates
+     * ({@code Home_de.html}) gehören zur Spezifikation ohne Locale ({@code Home.page}).
+     */
+    public static @Nullable XmlFile findSpecForTemplate(@NotNull final PsiFile template) {
         final VirtualFile vf = template.getOriginalFile().getVirtualFile();
         if (vf == null) return null;
         final Project project = template.getProject();
         final GlobalSearchScope scope = GlobalSearchScope.allScope(project);
-        final List<VirtualFile> candidates = new ArrayList<>();
-        for (final String ext : List.of(EXT_PAGE, EXT_COMPONENT)) {
-            candidates.addAll(FilenameIndex.getVirtualFilesByName("%s.%s".formatted(vf.getNameWithoutExtension(), ext), scope));
+        final Set<String> baseNames = new LinkedHashSet<>(List.of(vf.getNameWithoutExtension(),
+                TapestryPaths.stripLocale(vf.getNameWithoutExtension())));
+        for (final String baseName : baseNames) {
+            final List<VirtualFile> candidates = new ArrayList<>();
+            for (final String ext : List.of(EXT_PAGE, EXT_COMPONENT)) {
+                candidates.addAll(FilenameIndex.getVirtualFilesByName("%s.%s".formatted(baseName, ext), scope));
+            }
+            final VirtualFile closest = TapestryPaths.closest(vf, candidates);
+            if (closest != null && PsiManager.getInstance(project).findFile(closest) instanceof final XmlFile xml) return xml;
         }
-        final VirtualFile closest = TapestryPaths.closest(vf, candidates);
-        return closest != null && PsiManager.getInstance(project).findFile(closest) instanceof final XmlFile xml ? xml : null;
+        return null;
     }
 
-    /** Templates gleichen Namens mit dem ähnlichsten Pfad (bei Gleichstand alle). */
-    public static @NotNull List<PsiFile> findTemplatesForSpec(@NotNull XmlFile spec) {
+    /** Templates gleichen Namens (Endung laut template-extension) mit dem ähnlichsten Pfad (bei Gleichstand alle). */
+    public static @NotNull List<PsiFile> findTemplatesForSpec(@NotNull final XmlFile spec) {
         final VirtualFile vf = spec.getOriginalFile().getVirtualFile();
         if (vf == null) return List.of();
         final Collection<VirtualFile> candidates = FilenameIndex.getVirtualFilesByName(
-                "%s.%s".formatted(vf.getNameWithoutExtension(), TEMPLATE_EXT), GlobalSearchScope.allScope(spec.getProject()));
+                "%s.%s".formatted(vf.getNameWithoutExtension(), TapestryConfiguration.getTemplateExtension(spec)), GlobalSearchScope.allScope(spec.getProject()));
         return toPsiFiles(spec.getProject(), TapestryPaths.allClosest(vf, candidates));
     }
 
@@ -150,35 +202,15 @@ public class TapestryModel {
         final String name = psiClass.getName();
         if (fqn == null || name == null || !fqn.contains(".")) return List.of();
         final String pkg = StringUtil.getPackageName(fqn);
-        final Map<String, List<String>> meta = getApplicationMeta(psiClass.getProject());
-        final boolean inConventionPackage = meta.getOrDefault(META_PAGE_PACKAGES, List.of()).contains(pkg)
-                || meta.getOrDefault(META_COMPONENT_PACKAGES, List.of()).contains(pkg);
-        if (!inConventionPackage) return List.of();
         final Project project = psiClass.getProject();
-        return toPsiFiles(project, FilenameIndex.getVirtualFilesByName("%s.%s".formatted(name, TEMPLATE_EXT), GlobalSearchScope.projectScope(project)));
-    }
-
-    // ------------------------------------------------------------------ Meta-Daten der .application
-
-    /** meta-Werte aller .application-Dateien (z.B. org.apache.tapestry.page-class-packages), kommasepariert aufgeteilt. */
-    public static @NotNull Map<String, List<String>> getApplicationMeta(@NotNull final Project project) {
-        return CachedValuesManager.getManager(project).getCachedValue(project, META_KEY, () ->
-                CachedValueProvider.Result.create(computeApplicationMeta(project), PsiModificationTracker.MODIFICATION_COUNT), false);
-    }
-
-    private static Map<String, List<String>> computeApplicationMeta(final Project project) {
-        final Map<String, List<String>> meta = new HashMap<>();
-        for (final VirtualFile app : FilenameIndex.getAllFilesByExt(project, EXT_APPLICATION, GlobalSearchScope.projectScope(project))) {
-            final XmlTag root = SpecXml.rootTag(project, app);
-            if (root == null) continue;
-            for (final XmlTag tag : root.findSubTags(TAG_META)) {
-                final String key = SpecXml.attr(tag, "key");
-                String value = tag.getAttributeValue(ATTR_VALUE);
-                if (value == null) value = tag.getValue().getTrimmedText();
-                if (key != null) meta.computeIfAbsent(key, k -> new ArrayList<>()).addAll(SpecXml.splitList(value));
-            }
+        final boolean inConventionPackage = TapestryConfiguration.getProjectMeta(project, META_PAGE_PACKAGES).contains(pkg)
+                || TapestryConfiguration.getProjectMeta(project, META_COMPONENT_PACKAGES).contains(pkg);
+        if (!inConventionPackage) return List.of();
+        final List<VirtualFile> templates = new ArrayList<>();
+        for (final String extension : TapestryConfiguration.getTemplateExtensions(project)) {
+            templates.addAll(FilenameIndex.getVirtualFilesByName("%s.%s".formatted(name, extension), GlobalSearchScope.projectScope(project)));
         }
-        return meta;
+        return toPsiFiles(project, templates);
     }
 
     private static List<PsiFile> toPsiFiles(final Project project, final Collection<VirtualFile> files) {

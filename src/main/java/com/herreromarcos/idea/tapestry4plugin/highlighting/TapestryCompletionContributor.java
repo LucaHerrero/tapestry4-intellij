@@ -1,7 +1,13 @@
 package com.herreromarcos.idea.tapestry4plugin.highlighting;
 
+import com.herreromarcos.idea.tapestry4plugin.TapestryConstants;
+import com.herreromarcos.idea.tapestry4plugin.TapestryIcons;
+import com.herreromarcos.idea.tapestry4plugin.model.BindingPrefixes;
+import com.herreromarcos.idea.tapestry4plugin.model.TapestryConfiguration;
+import com.herreromarcos.idea.tapestry4plugin.model.TapestryFiles;
 import com.intellij.codeInsight.AutoPopupController;
 import com.intellij.codeInsight.completion.*;
+import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.patterns.PlatformPatterns;
 import com.intellij.patterns.XmlPatterns;
@@ -12,9 +18,6 @@ import com.intellij.psi.xml.XmlAttribute;
 import com.intellij.psi.xml.XmlAttributeValue;
 import com.intellij.psi.xml.XmlTag;
 import com.intellij.util.ProcessingContext;
-import com.herreromarcos.idea.tapestry4plugin.TapestryConstants;
-import com.herreromarcos.idea.tapestry4plugin.TapestryIcons;
-import com.herreromarcos.idea.tapestry4plugin.model.TapestryFiles;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Set;
@@ -36,27 +39,33 @@ public class TapestryCompletionContributor extends CompletionContributor {
 
                 final int caret = parameters.getOffset() - value.getTextRange().getStartOffset();
                 final String text = value.getText();
-                String beforeCaret = caret > 0 && caret <= text.length() ? text.substring(0, caret) : "";
-                beforeCaret = beforeCaret.replaceFirst("^[\"']", "");
+                final String beforeCaret = (caret > 0 && caret <= text.length() ? text.substring(0, caret) : "").replaceFirst("^[\"']", "");
                 if (beforeCaret.contains(":") || !beforeCaret.chars().allMatch(Character::isLetter)) return;
 
                 final CompletionResultSet prefixed = result.withPrefixMatcher(beforeCaret);
                 for (final String prefix : TapestryConstants.BINDING_PREFIXES) {
-                    prefixed.addElement(LookupElementBuilder.create(prefix + ":")
-                            .withIcon(TapestryIcons.TAPESTRY)
-                            .withTypeText("binding prefix", true)
-                            .withInsertHandler((ctx, item) ->
-                                    AutoPopupController.getInstance(ctx.getProject()).scheduleAutoPopup(ctx.getEditor())));
+                    prefixed.addElement(prefixElement(prefix, "binding prefix"));
+                }
+                // projekteigene Präfixe aus tapestry.bindings.BindingFactories
+                for (final String prefix : BindingPrefixes.getCustom(position.getProject())) {
+                    prefixed.addElement(prefixElement(prefix, "custom binding prefix"));
                 }
             }
         });
+    }
+
+    private static LookupElement prefixElement(final String prefix, final String typeText) {
+        return LookupElementBuilder.create("%s:".formatted(prefix))
+                .withIcon(TapestryIcons.TAPESTRY)
+                .withTypeText(typeText, true)
+                .withInsertHandler((ctx, item) -> AutoPopupController.getInstance(ctx.getProject()).scheduleAutoPopup(ctx.getEditor()));
     }
 
     private static boolean acceptsBinding(final XmlAttribute attribute, final PsiFile file) {
         final XmlTag tag = attribute.getParent();
         if (tag == null) return false;
         if (TapestryFiles.isTemplateFile(file)) {
-            return !TapestryConstants.JWCID.equalsIgnoreCase(attribute.getName()) && tag.getAttribute(TapestryConstants.JWCID) != null;
+            return !TapestryConfiguration.isJwcidAttribute(attribute) && TapestryConfiguration.isComponentTag(tag);
         }
         return TapestryFiles.isSpecFile(file) && SPEC_BINDING_ATTRIBUTES.contains("%s.%s".formatted(tag.getName(), attribute.getName()));
     }

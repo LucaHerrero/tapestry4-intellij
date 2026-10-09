@@ -1,12 +1,12 @@
 package com.herreromarcos.idea.tapestry4plugin;
 
+import com.herreromarcos.idea.tapestry4plugin.model.TapestryFiles;
+import com.herreromarcos.idea.tapestry4plugin.model.TapestryModel;
+import com.herreromarcos.idea.tapestry4plugin.references.TapestryReference;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiMethod;
 import com.intellij.usageView.UsageInfo;
-import com.herreromarcos.idea.tapestry4plugin.model.TapestryFiles;
-import com.herreromarcos.idea.tapestry4plugin.references.TapestryReference;
-import com.herreromarcos.idea.tapestry4plugin.model.TapestryModel;
 
 import java.util.Collection;
 import java.util.List;
@@ -40,23 +40,23 @@ public class ReviewFindingsTest extends TapestryTestCase {
     // ---- Pflichtparameter: inherited-binding und copy-of zählen als gebunden
 
     public void testRequiredParameterBoundViaInheritedBinding() {
-        myFixture.addFileToProject("Inh.page", DOCTYPE_4_0.formatted("page-specification") + """
+        myFixture.addFileToProject("Inh.page", page("""
                 <page-specification>
                   <component id="x" type="Insert"><inherited-binding name="value" parameter-name="text"/></component>
                 </page-specification>
-                """);
+                """));
         configure("Inh.html", "<html><body><span jwcid=\"x\"/></body></html>");
         final List<String> warnings = highlightingMessages(HighlightSeverity.WARNING);
         assertFalse(warnings.toString(), warnings.stream().anyMatch(m -> m.startsWith("Required parameter")));
     }
 
     public void testRequiredParameterBoundViaCopyOf() {
-        myFixture.addFileToProject("Copy.page", DOCTYPE_4_0.formatted("page-specification") + """
+        myFixture.addFileToProject("Copy.page", page("""
                 <page-specification>
                   <component id="a" type="Insert"><binding name="value" value="literal:x"/></component>
                   <component id="b" copy-of="a"/>
                 </page-specification>
-                """);
+                """));
         configure("Copy.html", "<html><body><span jwcid=\"a\"/><span jwcid=\"b\"/></body></html>");
         final List<String> warnings = highlightingMessages(HighlightSeverity.WARNING);
         assertFalse(warnings.toString(), warnings.stream().anyMatch(m -> m.startsWith("Required parameter")));

@@ -3,6 +3,8 @@ package com.herreromarcos.idea.tapestry4plugin.model;
 import com.intellij.openapi.util.TextRange;
 import junit.framework.TestCase;
 
+import java.util.Set;
+
 /** Reine Unit-Tests der Parser für jwcid und Binding-Ausdrücke (ohne IDE). */
 public class ParserTest extends TestCase {
 
@@ -49,12 +51,38 @@ public class ParserTest extends TestCase {
         assertFalse(binding.isLiteral());
     }
 
-    public void testUnknownPrefixIsLiteral() {
+    /** Wie BindingSourceImpl: ein nicht registriertes "name:" gehört zum Ausdruck, es gilt das Standard-Präfix. */
+    public void testUnregisteredPrefixBelongsToExpression() {
         final BindingExpression binding = BindingExpression.parse("http://example.com");
         assertNull(binding.prefix());
+        assertNull(binding.customPrefix());
+        assertEquals("http", binding.unregisteredPrefix());
         assertEquals("http://example.com", binding.expression());
         assertTrue(binding.isLiteral());
-        assertEquals("ognl", binding.prefixOr("ognl"));
+        assertEquals("ognl", binding.effectivePrefix("ognl"));
+    }
+
+    /** Registriertes projekteigenes Präfix: wird abgetrennt, der Ausdruck aber nicht ausgewertet. */
+    public void testRegisteredCustomPrefix() {
+        final BindingExpression binding = BindingExpression.parse("spring:userService", Set.of("spring"));
+        assertEquals("spring", binding.customPrefix());
+        assertEquals("spring", binding.registeredPrefix());
+        assertEquals("userService", binding.expression());
+        assertFalse(binding.isLiteral());
+        assertNull(binding.effectivePrefix("ognl"));
+    }
+
+    public void testNoPrefixUsesDefault() {
+        final BindingExpression binding = BindingExpression.parse("user.name");
+        assertNull(binding.prefix());
+        assertNull(binding.customPrefix());
+        assertEquals("ognl", binding.effectivePrefix("ognl"));
+    }
+
+    public void testDocumentedPrefixes() {
+        for (final String prefix : java.util.List.of("validator", "validators", "meta", "clientId", "translator", "state", "hivemind")) {
+            assertEquals(prefix, BindingExpression.parse(prefix + ":x").prefix());
+        }
     }
 
     public void testLiteralPrefix() {

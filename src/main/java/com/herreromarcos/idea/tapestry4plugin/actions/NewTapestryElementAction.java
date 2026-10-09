@@ -1,5 +1,7 @@
 package com.herreromarcos.idea.tapestry4plugin.actions;
 
+import com.herreromarcos.idea.tapestry4plugin.TapestryConstants;
+import com.herreromarcos.idea.tapestry4plugin.TapestryIcons;
 import com.intellij.ide.IdeView;
 import com.intellij.ide.highlighter.HtmlFileType;
 import com.intellij.ide.highlighter.XmlFileType;
@@ -16,8 +18,6 @@ import com.intellij.psi.PsiDirectory;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiFileFactory;
 import com.intellij.psi.PsiNameHelper;
-import com.herreromarcos.idea.tapestry4plugin.TapestryConstants;
-import com.herreromarcos.idea.tapestry4plugin.TapestryIcons;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.Icon;
@@ -65,10 +65,10 @@ public abstract class NewTapestryElementAction extends AnAction {
 
         final String kind = page ? "page" : "component";
         final String title = "New Tapestry 4 %s".formatted(StringUtil.capitalize(kind));
-        String name = Messages.showInputDialog(project, "Name of the new %s:".formatted(kind), title,
+        final String input = Messages.showInputDialog(project, "Name of the new %s:".formatted(kind), title,
                 page ? TapestryIcons.PAGE : TapestryIcons.COMPONENT);
-        if (StringUtil.isEmptyOrSpaces(name)) return;
-        name = name.trim();
+        if (StringUtil.isEmptyOrSpaces(input)) return;
+        final String name = input.trim();
         if (!PsiNameHelper.getInstance(project).isIdentifier(name)) {
             Messages.showErrorDialog(project, "'%s' is not a valid name".formatted(name), title);
             return;

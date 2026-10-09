@@ -1,11 +1,11 @@
 package com.herreromarcos.idea.tapestry4plugin.navigation;
 
-import com.intellij.ide.IconProvider;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.xml.XmlFile;
 import com.herreromarcos.idea.tapestry4plugin.TapestryIcons;
 import com.herreromarcos.idea.tapestry4plugin.model.SpecKind;
 import com.herreromarcos.idea.tapestry4plugin.model.TapestryFiles;
+import com.intellij.ide.IconProvider;
+import com.intellij.psi.PsiElement;
+import com.intellij.psi.xml.XmlFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

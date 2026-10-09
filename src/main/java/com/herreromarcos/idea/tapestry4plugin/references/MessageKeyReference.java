@@ -1,18 +1,21 @@
 package com.herreromarcos.idea.tapestry4plugin.references;
 
+import com.herreromarcos.idea.tapestry4plugin.TapestryConstants;
+import com.herreromarcos.idea.tapestry4plugin.model.TapestryContext;
+import com.herreromarcos.idea.tapestry4plugin.model.TapestryPaths;
+import com.herreromarcos.idea.tapestry4plugin.model.WebXml;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.lang.properties.IProperty;
 import com.intellij.lang.properties.psi.PropertiesFile;
 import com.intellij.openapi.util.TextRange;
+import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
 import com.intellij.psi.search.FilenameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.util.PlatformIcons;
-import com.herreromarcos.idea.tapestry4plugin.TapestryConstants;
-import com.herreromarcos.idea.tapestry4plugin.model.TapestryContext;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -20,12 +23,14 @@ import java.util.*;
 import java.util.regex.Pattern;
 
 /**
- * {@code message:key} â Eintrag in den Message-Katalogen: {@code <Seite>.properties} (+ Locale-Varianten)
- * neben Spezifikation/Template sowie die anwendungsweiten {@code <app>.properties} neben der .application.
+ * {@code message:key} bzw. {@code <span key="...">} → Eintrag im Message-Katalog (User's Guide, "Localization"):
+ * <ul>
+ *   <li>Katalog der Seite/Komponente: {@code <Name>.properties} (+ Locale-Varianten) neben Spezifikation/Template</li>
+ *   <li>Namespace-Katalog: {@code <app>.properties} neben der .application, sowie
+^ *       {@code WEB-INF/<servlet-name>.properties} – auch ohne .application, sowie {@code <lib>.properties} einer Bibliothek</li>
+ * </ul>
  */
 public class MessageKeyReference extends TapestryReferenceBase implements PsiPolyVariantReference {
-    /** Optionales Locale-Suffix: _de, _de_AT, _en_US_POSIX – nicht aber _Admin (das wäre eine andere Seite). */
-    private static final String LOCALE_SUFFIX = "(_[a-z]{2,3}(_([A-Z]{2}|[0-9]{3})(_\\w+)?)?)?";
 
     public MessageKeyReference(@NotNull final PsiElement element, @NotNull final TextRange range) {
         super(element, range);
@@ -36,22 +41,45 @@ public class MessageKeyReference extends TapestryReferenceBase implements PsiPol
         final List<PropertiesFile> result = new ArrayList<>();
         final Set<VirtualFile> seen = new HashSet<>();
         for (final PsiFile owner : Arrays.asList(ctx.spec(), ctx.template())) {
-            if (owner != null) collect(owner.getOriginalFile().getVirtualFile(), result, seen);
+            final VirtualFile vf = owner != null ? owner.getOriginalFile().getVirtualFile() : null;
+            if (vf != null) collect(vf.getParent(), TapestryPaths.stripLocale(vf.getNameWithoutExtension()), result, seen);
         }
         final PsiFile file = getElement().getContainingFile().getOriginalFile();
         for (final VirtualFile app : FilenameIndex.getAllFilesByExt(file.getProject(), TapestryConstants.EXT_APPLICATION,
                 GlobalSearchScope.projectScope(file.getProject()))) {
-            collect(app, result, seen);
+            collect(app.getParent(), app.getNameWithoutExtension(), result, seen);
+        }
+        // Namespace-Katalog einer Bibliothek: gilt für Seiten/Komponenten im Ordner der .library (und darunter)
+        final PsiFile owner = ctx.spec() != null ? ctx.spec() : ctx.template();
+        final VirtualFile ownerFile = owner != null ? owner.getOriginalFile().getVirtualFile() : null;
+        if (ownerFile != null) {
+            for (final VirtualFile library : FilenameIndex.getAllFilesByExt(file.getProject(), TapestryConstants.EXT_LIBRARY,
+                    GlobalSearchScope.allScope(file.getProject()))) {
+                final VirtualFile folder = library.getParent();
+                if (folder != null && VfsUtilCore.isAncestor(folder, ownerFile, true)) {
+                    collect(folder, library.getNameWithoutExtension(), result, seen);
+                }
+            }
+        }
+        final VirtualFile vf = file.getVirtualFile();
+        final VirtualFile webRoot = vf != null ? TapestryPaths.webRoot(vf) : null;
+        final VirtualFile webInf = webRoot != null ? webRoot.findChild(TapestryConstants.WEB_INF) : null;
+        if (webInf != null) {
+            for (final String servlet : WebXml.servletNames(getElement().getProject(), webInf)) {
+                collect(webInf, servlet, result, seen);
+                collect(webInf.findChild(servlet), servlet, result, seen);
+            }
         }
         return result;
     }
 
-    private void collect(@Nullable final VirtualFile owner, final List<PropertiesFile> result, final Set<VirtualFile> seen) {
-        if (owner == null || owner.getParent() == null) return;
-        final String base = owner.getNameWithoutExtension();
+    /** Katalogdateien {@code base.properties} und {@code base_<locale>.properties} im Verzeichnis. */
+    private void collect(@Nullable final VirtualFile dir, final String base, final List<PropertiesFile> result,
+                         final Set<VirtualFile> seen) {
+        if (dir == null || !dir.isDirectory()) return;
         final PsiManager manager = getElement().getManager();
-        final Pattern catalog = Pattern.compile(Pattern.quote(base) + LOCALE_SUFFIX + "\\.properties");
-        for (final VirtualFile child : owner.getParent().getChildren()) {
+        final Pattern catalog = Pattern.compile(Pattern.quote(base) + TapestryPaths.LOCALE_SUFFIX + "?\\.properties");
+        for (final VirtualFile child : dir.getChildren()) {
             if (!catalog.matcher(child.getName()).matches()) continue;
             if (seen.add(child) && manager.findFile(child) instanceof final PropertiesFile pf) result.add(pf);
         }

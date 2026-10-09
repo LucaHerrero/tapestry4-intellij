@@ -5,7 +5,7 @@ import com.intellij.psi.PsiReferenceContributor;
 import com.intellij.psi.PsiReferenceRegistrar;
 import org.jetbrains.annotations.NotNull;
 
-/** Registriert die Referenzen in HTML-Templates und in Tapestry-Spezifikationen. */
+/** Registriert die Referenzen in HTML-Templates, Tapestry-Spezifikationen und Script-Spezifikationen. */
 public class TapestryReferenceContributor extends PsiReferenceContributor {
 
     @Override
@@ -14,5 +14,6 @@ public class TapestryReferenceContributor extends PsiReferenceContributor {
         // Die Provider liefern nur bei Tapestry-Ausdrücken Referenzen, HTML-Referenzen bleiben sonst unberührt.
         registrar.registerReferenceProvider(XmlPatterns.xmlAttributeValue(), new TemplateReferenceProvider(), PsiReferenceRegistrar.HIGHER_PRIORITY);
         registrar.registerReferenceProvider(XmlPatterns.xmlAttributeValue(), new SpecReferenceProvider(), PsiReferenceRegistrar.HIGHER_PRIORITY);
+        registrar.registerReferenceProvider(XmlPatterns.xmlAttributeValue(), new ScriptReferenceProvider());
     }
 }

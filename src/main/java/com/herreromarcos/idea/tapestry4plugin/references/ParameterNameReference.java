@@ -1,5 +1,12 @@
 package com.herreromarcos.idea.tapestry4plugin.references;
 
+import com.herreromarcos.idea.tapestry4plugin.TapestryIcons;
+import com.herreromarcos.idea.tapestry4plugin.model.ComponentModel;
+import com.herreromarcos.idea.tapestry4plugin.model.ComponentParameter;
+import com.herreromarcos.idea.tapestry4plugin.model.DeclaredComponent;
+import com.herreromarcos.idea.tapestry4plugin.model.SpecXml;
+import com.herreromarcos.idea.tapestry4plugin.model.TapestryContext;
+import com.herreromarcos.idea.tapestry4plugin.model.TapestryRegistry;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.lang.annotation.HighlightSeverity;
@@ -8,13 +15,6 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.psi.xml.XmlTag;
-import com.herreromarcos.idea.tapestry4plugin.TapestryIcons;
-import com.herreromarcos.idea.tapestry4plugin.model.ComponentModel;
-import com.herreromarcos.idea.tapestry4plugin.model.ComponentParameter;
-import com.herreromarcos.idea.tapestry4plugin.model.DeclaredComponent;
-import com.herreromarcos.idea.tapestry4plugin.model.SpecXml;
-import com.herreromarcos.idea.tapestry4plugin.model.TapestryContext;
-import com.herreromarcos.idea.tapestry4plugin.model.TapestryRegistry;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

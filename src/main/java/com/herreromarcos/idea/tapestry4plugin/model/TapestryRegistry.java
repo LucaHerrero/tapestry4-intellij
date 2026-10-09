@@ -38,6 +38,7 @@ import static com.herreromarcos.idea.tapestry4plugin.TapestryConstants.*;
 public class TapestryRegistry {
     private static final Key<CachedValue<Map<String, VirtualFile>>> COMPONENT_TYPES_KEY = Key.create("tapestry4.componentTypes");
     private static final Key<CachedValue<Map<String, VirtualFile>>> PAGES_KEY = Key.create("tapestry4.pages");
+    private static final Key<CachedValue<Map<VirtualFile, VirtualFile>>> LIBRARY_MEMBERS_KEY = Key.create("tapestry4.libraryMembers");
     private static final Key<CachedValue<Boolean>> FRAMEWORK_PRESENT_KEY = Key.create("tapestry4.frameworkPresent");
 
     private TapestryRegistry() {
@@ -59,20 +60,19 @@ public class TapestryRegistry {
     }
 
     /** Löst "Insert", "contrib:Table" oder eine Pfadangabe wie "common/Border" auf die .jwc-Datei auf. */
-    public static @Nullable XmlFile resolveComponentType(@NotNull String type, @NotNull PsiElement context) {
-        type = type.trim();
+    public static @Nullable XmlFile resolveComponentType(@NotNull final String typeName, @NotNull final PsiElement context) {
+        final String type = typeName.trim();
         if (type.isEmpty()) return null;
         final Project project = context.getProject();
         final Map<String, VirtualFile> types = getComponentTypes(project);
-        VirtualFile vf = types.get(type);
-        if (vf == null && type.contains("/") && !type.contains(":")) {
-            vf = resolveTypePath(type, context, types);
-        }
+        final VirtualFile registered = types.get(type);
+        final VirtualFile vf = registered == null && type.contains("/") && !type.contains(":")
+                ? resolveTypePath(type, context, types) : registered;
         final PsiFile psi = vf != null && vf.isValid() ? PsiManager.getInstance(project).findFile(vf) : null;
         return psi instanceof final XmlFile xml ? xml : null;
     }
 
-    private static @Nullable VirtualFile resolveTypePath(String type, PsiElement context, Map<String, VirtualFile> types) {
+    private static @Nullable VirtualFile resolveTypePath(final String type, final PsiElement context, final Map<String, VirtualFile> types) {
         final String fileSuffix = "%s.%s".formatted(type, EXT_COMPONENT);
         final VirtualFile base = context.getContainingFile().getOriginalFile().getVirtualFile();
         final VirtualFile relative = base != null && base.getParent() != null ? base.getParent().findFileByRelativePath(fileSuffix) : null;
@@ -89,7 +89,7 @@ public class TapestryRegistry {
     }
 
     /** Typen mit Seitenlink-Semantik (Parameter "page" ist ein Seitenname). */
-    public static boolean isPageLink(@Nullable String type) {
+    public static boolean isPageLink(@Nullable final String type) {
         return type != null && type.endsWith(PAGE_LINK);
     }
 
@@ -104,15 +104,22 @@ public class TapestryRegistry {
         final Map<String, VirtualFile> prefixed = new LinkedHashMap<>();
         final GlobalSearchScope projectScope = GlobalSearchScope.projectScope(project);
 
-        // 1. <component-type> aus .application/.library des Projekts; eingebundene Bibliotheken merken
-        final Map<VirtualFile, String> libraries = new LinkedHashMap<>();
+        // 1. <component-type> aus .application/.library des Projekts
         for (final String ext : List.of(EXT_APPLICATION, EXT_LIBRARY)) {
             for (final VirtualFile spec : FilenameIndex.getAllFilesByExt(project, ext, projectScope)) {
                 collectComponentTypes(project, spec, null, unprefixed);
-                collectLibraries(project, spec, libraries);
             }
         }
-        collectLibraryComponentTypes(project, libraries, prefixed);
+        // eingebundene Bibliotheken: ihre Typen bekommen das Präfix der library id
+        findReferencedLibraries(project).forEach((library, id) -> {
+            collectComponentTypes(project, library, id, prefixed);
+            // "In the same package folder as the library specification" (User's Guide, Library component search path)
+            for (final VirtualFile child : siblings(library)) {
+                if (EXT_COMPONENT.equals(child.getExtension())) {
+                    prefixed.putIfAbsent("%s:%s".formatted(id, child.getNameWithoutExtension()), child);
+                }
+            }
+        });
 
         // 2. Lose .jwc-Dateien im Projekt (WEB-INF, Kontext-Root, Pakete)
         for (final VirtualFile jwc : FilenameIndex.getAllFilesByExt(project, EXT_COMPONENT, projectScope)) {
@@ -132,14 +139,20 @@ public class TapestryRegistry {
         return result;
     }
 
-    /** Bibliotheken (auch verschachtelte) durchlaufen; ihre Typen bekommen das Präfix der library id. */
-    private static void collectLibraryComponentTypes(final Project project, final Map<VirtualFile, String> libraries, final Map<String, VirtualFile> out) {
+    /** Über {@code <library id specification-path>} eingebundene Bibliotheken (auch verschachtelte) → library id. */
+    private static Map<VirtualFile, String> findReferencedLibraries(final Project project) {
+        final Map<VirtualFile, String> libraries = new LinkedHashMap<>();
+        final GlobalSearchScope projectScope = GlobalSearchScope.projectScope(project);
+        for (final String ext : List.of(EXT_APPLICATION, EXT_LIBRARY)) {
+            for (final VirtualFile spec : FilenameIndex.getAllFilesByExt(project, ext, projectScope)) {
+                collectLibraries(project, spec, libraries);
+            }
+        }
         final Deque<VirtualFile> queue = new ArrayDeque<>(libraries.keySet());
         final Set<VirtualFile> visited = new HashSet<>();
         while (!queue.isEmpty()) {
             final VirtualFile library = queue.poll();
             if (!visited.add(library)) continue;
-            collectComponentTypes(project, library, libraries.get(library), out);
             final Map<VirtualFile, String> nested = new LinkedHashMap<>();
             collectLibraries(project, library, nested);
             nested.forEach((file, id) -> {
@@ -147,6 +160,43 @@ public class TapestryRegistry {
                 queue.add(file);
             });
         }
+        return libraries;
+    }
+
+    private static List<VirtualFile> siblings(final VirtualFile file) {
+        final VirtualFile folder = file.getParent();
+        return folder != null ? List.of(folder.getChildren()) : List.of();
+    }
+
+    // ------------------------------------------------------------------ Bibliotheken als Namespace
+
+    /**
+     * Bibliothek (.library), zu deren Namespace eine Spezifikation oder ein Template gehört, oder {@code null} für den
+     * Application-Namespace. Zur Bibliothek gehören die über {@code <component-type>}/{@code <page>} eingetragenen
+     * Spezifikationen und die Dateien im Ordner der Bibliotheksspezifikation (sofern dort keine .application liegt).
+     */
+    public static @Nullable VirtualFile findLibrary(@NotNull final Project project, @NotNull final VirtualFile file) {
+        final Map<VirtualFile, VirtualFile> members = CachedValuesManager.getManager(project).getCachedValue(project, LIBRARY_MEMBERS_KEY, () ->
+                CachedValueProvider.Result.create(computeLibraryMembers(project),
+                        PsiModificationTracker.MODIFICATION_COUNT, ProjectRootModificationTracker.getInstance(project)), false);
+        final VirtualFile library = members.get(file);
+        if (library != null) return library;
+        return file.getParent() != null ? members.get(file.getParent()) : null;
+    }
+
+    /** Mitglied (Spezifikation oder Ordner) → Bibliothek. */
+    private static Map<VirtualFile, VirtualFile> computeLibraryMembers(final Project project) {
+        final Set<VirtualFile> libraries = new LinkedHashSet<>(findReferencedLibraries(project).keySet());
+        libraries.addAll(FilenameIndex.getAllFilesByExt(project, EXT_LIBRARY, GlobalSearchScope.projectScope(project)));
+        libraries.addAll(findFrameworkLibraries(project));
+        final Map<VirtualFile, VirtualFile> members = new HashMap<>();
+        for (final VirtualFile library : libraries) {
+            forEachPathEntry(project, library, TAG_COMPONENT_TYPE, ATTR_TYPE, (type, target) -> members.putIfAbsent(target, library));
+            forEachPathEntry(project, library, TAG_PAGE, ATTR_NAME, (name, target) -> members.putIfAbsent(target, library));
+            final boolean sharedWithApplication = siblings(library).stream().anyMatch(f -> EXT_APPLICATION.equals(f.getExtension()));
+            if (library.getParent() != null && !sharedWithApplication) members.putIfAbsent(library.getParent(), library);
+        }
+        return members;
     }
 
     private static void collectComponentTypes(final Project project, final VirtualFile specFile, @Nullable final String prefix, final Map<String, VirtualFile> out) {
@@ -204,11 +254,13 @@ public class TapestryRegistry {
             if (belowWebInf != null) result.putIfAbsent(belowWebInf, page);
         }
         // 3. Spezifikationslose Seiten: Templates im Kontext-Root (nicht unter WEB-INF)
-        for (final VirtualFile template : FilenameIndex.getAllFilesByExt(project, TEMPLATE_EXT, scope)) {
-            final VirtualFile webRoot = TapestryPaths.webRoot(template);
-            final String relative = webRoot != null ? VfsUtilCore.getRelativePath(template, webRoot, '/') : null;
-            if (relative != null && !relative.startsWith(WEB_INF + "/")) {
-                result.putIfAbsent(StringUtil.trimEnd(relative, "." + TEMPLATE_EXT), template);
+        for (final String extension : TapestryConfiguration.getTemplateExtensions(project)) {
+            for (final VirtualFile template : FilenameIndex.getAllFilesByExt(project, extension, scope)) {
+                final VirtualFile webRoot = TapestryPaths.webRoot(template);
+                final String relative = webRoot != null ? VfsUtilCore.getRelativePath(template, webRoot, '/') : null;
+                if (relative != null && !relative.startsWith(WEB_INF + "/")) {
+                    result.putIfAbsent(StringUtil.trimEnd(relative, "." + extension), template);
+                }
             }
         }
         return result;

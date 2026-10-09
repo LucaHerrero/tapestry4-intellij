@@ -1,5 +1,10 @@
 package com.herreromarcos.idea.tapestry4plugin.navigation;
 
+import com.herreromarcos.idea.tapestry4plugin.TapestryConstants;
+import com.herreromarcos.idea.tapestry4plugin.TapestryIcons;
+import com.herreromarcos.idea.tapestry4plugin.model.SpecKind;
+import com.herreromarcos.idea.tapestry4plugin.model.SpecXml;
+import com.herreromarcos.idea.tapestry4plugin.model.TapestryFiles;
 import com.intellij.codeInsight.daemon.RelatedItemLineMarkerInfo;
 import com.intellij.codeInsight.daemon.RelatedItemLineMarkerProvider;
 import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
@@ -8,11 +13,6 @@ import com.intellij.psi.xml.XmlFile;
 import com.intellij.psi.xml.XmlTag;
 import com.intellij.psi.xml.XmlToken;
 import com.intellij.psi.xml.XmlTokenType;
-import com.herreromarcos.idea.tapestry4plugin.TapestryConstants;
-import com.herreromarcos.idea.tapestry4plugin.TapestryIcons;
-import com.herreromarcos.idea.tapestry4plugin.model.SpecKind;
-import com.herreromarcos.idea.tapestry4plugin.model.SpecXml;
-import com.herreromarcos.idea.tapestry4plugin.model.TapestryFiles;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;

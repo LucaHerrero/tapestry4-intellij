@@ -6,15 +6,23 @@
     <description><![CDATA[
     Support for <b>Apache Tapestry 4.0 / 4.1</b> web applications.
     <ul>
-      <li>HTML templates: <code>jwcid</code> is recognised; completion and navigation for declared component ids
-          (<code>jwcid="foo"</code>) and implicit components (<code>jwcid="@Insert"</code>, <code>jwcid="id@contrib:Table"</code>)</li>
-      <li>Component parameters offered as attributes, required parameters checked</li>
-      <li>Binding prefixes: <code>ognl:</code> (property chains resolved against the page class), <code>listener:</code>,
-          <code>message:</code>, <code>asset:</code>, <code>bean:</code>, <code>component:</code></li>
-      <li>Specifications (.page, .jwc, .application, .library): bundled DTD, component types, parameter names,
-          classes, specification paths, injected pages</li>
-      <li>Navigation between template, specification and Java class (gutter icons, Go to Related)</li>
-      <li>Component types from Framework.library, project libraries (e.g. contrib:) and loose .jwc files</li>
+      <li>HTML templates: <code>jwcid</code> (or the configured attribute name) with completion and navigation for
+          declared components (<code>jwcid="foo"</code>) and implicit components (<code>jwcid="@Insert"</code>,
+          <code>jwcid="id@contrib:Table"</code>); <code>$content$</code>, <code>$remove$</code>, <code>&lt;span key&gt;</code></li>
+      <li>Component parameters offered as attributes; checks for required, deprecated, reserved and informal parameters,
+          duplicate ids and components inside bodies that are discarded</li>
+      <li>OGNL parsed with the original OGNL parser: syntax errors, property and method chains in any expression,
+          element types after indexes, static members (<code>@Class@FIELD</code>), OGNL pseudo-properties</li>
+      <li>Binding prefixes <code>listener:</code>, <code>message:</code>, <code>asset:</code>, <code>bean:</code>,
+          <code>component:</code>, <code>state:</code>, <code>validators:</code> and project-specific prefixes
+          registered in <code>tapestry.bindings.BindingFactories</code></li>
+      <li>Specifications (.page, .jwc, .application, .library, .script): original DTDs (3.0, 4.0, 4.1),
+          component types, parameters, classes, beans, assets, injected pages, scripts and application state objects</li>
+      <li>Annotations (<code>@InjectPage</code>, <code>@Component</code>, <code>@Message</code>, <code>@InjectState</code> ...)</li>
+      <li>Configuration resolved like Tapestry: specification and <code>@Meta</code>, library or application,
+          web.xml parameters, <code>hivemind.ApplicationDefaults</code></li>
+      <li>Navigation between template, specification and Java class (gutter icons, Go to Related);
+          rename of getters updates OGNL expressions</li>
     </ul>
     ]]></description>
 
@@ -31,9 +39,11 @@
 
         <!-- Referenzen, Completion, Prüfungen (XML gilt auch für HTML/XHTML) -->
         <psi.referenceContributor language="XML" implementation="com.herreromarcos.idea.tapestry4plugin.references.TapestryReferenceContributor"/>
+        <psi.referenceContributor language="JAVA" implementation="com.herreromarcos.idea.tapestry4plugin.references.TapestryJavaReferenceContributor"/>
         <xml.attributeDescriptorsProvider implementation="com.herreromarcos.idea.tapestry4plugin.html.TapestryAttributeDescriptorsProvider"/>
         <completion.contributor language="XML" implementationClass="com.herreromarcos.idea.tapestry4plugin.highlighting.TapestryCompletionContributor"/>
         <annotator language="XML" implementationClass="com.herreromarcos.idea.tapestry4plugin.highlighting.TapestryAnnotator"/>
+        <annotator language="JAVA" implementationClass="com.herreromarcos.idea.tapestry4plugin.highlighting.TapestryAnnotator"/>
         <!-- Find Usages / Rename von Gettern findet "ognl:userName" -->
         <methodReferencesSearch implementation="com.herreromarcos.idea.tapestry4plugin.references.OgnlPropertyReferenceSearcher"/>
 

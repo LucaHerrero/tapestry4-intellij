@@ -50,6 +50,22 @@ public abstract class TapestryTestCase extends LightJavaCodeInsightFixtureTestCa
                   <parameter name="parameters"/>
                 </component-specification>
                 """);
+        // Basisklassen wie im echten Tapestry-JAR: ohne sie hätte eine Seite/Komponente ohne class-Attribut
+        // keine Klasse, gegen die OGNL geprüft werden kann
+        myFixture.addFileToProject("org/apache/tapestry/BaseComponent.java", """
+                package org.apache.tapestry;
+                public abstract class BaseComponent {
+                    public java.util.Map getComponents() { return null; }
+                    public java.util.Map getAssets() { return null; }
+                    public Object getMessages() { return null; }
+                }
+                """);
+        myFixture.addFileToProject("org/apache/tapestry/html/BasePage.java", """
+                package org.apache.tapestry.html;
+                public abstract class BasePage extends org.apache.tapestry.BaseComponent {
+                    public Object getVisit() { return null; }
+                }
+                """);
         myFixture.addFileToProject("com/example/Address.java", """
                 package com.example;
                 public class Address { public String getCity() { return null; } }
@@ -66,7 +82,7 @@ public abstract class TapestryTestCase extends LightJavaCodeInsightFixtureTestCa
                     public void onSave() {}
                 }
                 """);
-        myFixture.addFileToProject("Home.page", DOCTYPE_4_0.formatted("page-specification") + """
+        myFixture.addFileToProject("Home.page", page("""
                 <page-specification class="com.example.Home">
                   <property name="counter"/>
                   <component id="greeting" type="Insert">
@@ -74,8 +90,18 @@ public abstract class TapestryTestCase extends LightJavaCodeInsightFixtureTestCa
                   </component>
                   <asset name="logo" path="logo.png"/>
                 </page-specification>
-                """);
+                """));
         myFixture.addFileToProject("Home.properties", "title=Welcome\n");
+    }
+
+    /** Seitenspezifikation (Tapestry 4.0) mit dem angegebenen Inhalt. */
+    protected static String page(final String body) {
+        return DOCTYPE_4_0.formatted("page-specification") + body;
+    }
+
+    /** Komponentenspezifikation (Tapestry 4.0) mit dem angegebenen Inhalt. */
+    protected static String component(final String body) {
+        return DOCTYPE_4_0.formatted("component-specification") + body;
     }
 
     /** Legt die Datei an und öffnet sie im Editor; {@code <caret>} markiert die Cursorposition. */
@@ -105,6 +131,12 @@ public abstract class TapestryTestCase extends LightJavaCodeInsightFixtureTestCa
                 .filter(info -> info.getSeverity().compareTo(minimum) >= 0)
                 .map(info -> info.getDescription())
                 .toList();
+    }
+
+    /** Legt die Datei an und liefert alle Meldungen ab Warnung. */
+    protected List<String> warnings(final String path, final String text) {
+        configure(path, text);
+        return highlightingMessages(HighlightSeverity.WARNING);
     }
 
     protected boolean hasErrorOn(final String text) {
