@@ -16,8 +16,8 @@ import java.util.List;
 public class TapestryClassLineMarkerProvider extends RelatedItemLineMarkerProvider {
 
     @Override
-    protected void collectNavigationMarkers(@NotNull final PsiElement element,
-                                            @NotNull final Collection<? super RelatedItemLineMarkerInfo<?>> result) {
+    protected void collectNavigationMarkers(@NotNull PsiElement element,
+                                            @NotNull Collection<? super RelatedItemLineMarkerInfo<?>> result) {
         if (!(element instanceof PsiIdentifier) || !(element.getParent() instanceof final PsiClass psiClass)) return;
         if (psiClass.getNameIdentifier() != element) return;
         final List<PsiElement> targets = TapestryNavigation.relatedToClass(psiClass);

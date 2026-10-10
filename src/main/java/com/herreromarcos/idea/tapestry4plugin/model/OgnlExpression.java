@@ -32,6 +32,17 @@ import java.util.Set;
 public class OgnlExpression {
     /** {@code @@max(1, 2)}: ohne Klassennamen gilt java.lang.Math. */
     public static final String DEFAULT_STATIC_CLASS = "java.lang.Math";
+    /** Knotentypen des OGNL-Parsers (Klassennamen der nicht öffentlichen AST-Klassen). */
+    private static final String AST_CHAIN = "ASTChain";
+    private static final String AST_PROPERTY = "ASTProperty";
+    private static final String AST_METHOD = "ASTMethod";
+    private static final String AST_STATIC_FIELD = "ASTStaticField";
+    private static final String AST_STATIC_METHOD = "ASTStaticMethod";
+    private static final String AST_CTOR = "ASTCtor";
+    private static final String AST_INSTANCEOF = "ASTInstanceof";
+    private static final String AST_MAP = "ASTMap";
+    private static final String AST_VAR_REF = "ASTVarRef";
+    private static final String AST_ROOT_VAR_REF = "ASTRootVarRef";
     /** Knoten, deren Kinder gegen die Elemente einer Collection ausgewertet werden. */
     private static final Set<String> ELEMENT_CONTEXT_NODES = Set.of("ASTProject", "ASTSelect", "ASTSelectFirst", "ASTSelectLast");
 
@@ -89,7 +100,7 @@ public class OgnlExpression {
         return syntaxError;
     }
 
-    public static @NotNull OgnlExpression parse(@NotNull final String text) {
+    public static @NotNull OgnlExpression parse(@NotNull String text) {
         final OgnlExpression result = new OgnlExpression();
         final OgnlParser parser = new OgnlParser(new StringReader(text));
         final Token start = parser.token;
@@ -104,7 +115,7 @@ public class OgnlExpression {
         return result;
     }
 
-    private static SyntaxError syntaxError(final String text, final Token start, @Nullable final Token unexpected) {
+    private static SyntaxError syntaxError(String text, Token start, @Nullable Token unexpected) {
         final int end = text.stripTrailing().length();
         if (unexpected == null || unexpected.kind == OgnlParserConstants.EOF) {
             final int from = Math.max(0, end - 1);
@@ -126,7 +137,7 @@ public class OgnlExpression {
             return token.kind == OgnlParserConstants.IDENT;
         }
 
-        boolean is(final String image) {
+        boolean is(String image) {
             return image.equals(token.image);
         }
     }
@@ -135,7 +146,7 @@ public class OgnlExpression {
      * Die gelesenen Tokens mit Offsets. Die Offsets werden über den Text der Tokens bestimmt – die Zeilen-/Spaltenangaben
      * des Parsers rechnen Tabulatoren auf Tabstopps um.
      */
-    private static List<Located> located(final String text, final Token start) {
+    private static List<Located> located(String text, Token start) {
         final List<Located> result = new ArrayList<>();
         int position = 0;
         for (Token token = start.next; token != null && token.kind != OgnlParserConstants.EOF; token = token.next) {
@@ -155,48 +166,48 @@ public class OgnlExpression {
         private final OgnlExpression result;
         private int cursor;
 
-        Walker(final String text, final List<Located> tokens, final OgnlExpression result) {
+        Walker(String text, List<Located> tokens, OgnlExpression result) {
             this.text = text;
             this.tokens = tokens;
             this.result = result;
         }
 
-        private static String type(final Node node) {
+        private static String type(Node node) {
             return node.getClass().getSimpleName();
         }
 
         /** Durchläuft einen Knoten in Quelltextreihenfolge; {@code rootContext}: Ketten beziehen sich auf das Root-Objekt. */
-        void walk(final Node node, final boolean rootContext) {
+        void walk(Node node, boolean rootContext) {
             switch (type(node)) {
-                case "ASTChain" -> walkChain(node, rootContext);
-                case "ASTProperty", "ASTMethod", "ASTStaticField", "ASTStaticMethod" -> {
+                case AST_CHAIN -> walkChain(node, rootContext);
+                case AST_PROPERTY, AST_METHOD, AST_STATIC_FIELD, AST_STATIC_METHOD -> {
                     final List<Segment> segments = new ArrayList<>();
                     final Chain chain = walkChainStart(node, rootContext, segments);
                     if (chain != null) record(chain.rootKind(), chain.staticClass(), segments);
                 }
-                case "ASTCtor" -> {
+                case AST_CTOR -> {
                     nextToken("new");
                     className();
                     walkChildren(node, true);
                 }
-                case "ASTInstanceof" -> {
+                case AST_INSTANCEOF -> {
                     walkChildren(node, rootContext);
                     nextToken("instanceof");
                     className();
                 }
-                case "ASTMap" -> {
+                case AST_MAP -> {
                     if (node.toString().startsWith("#@")) {
                         nextToken("@");
                         className();
                     }
                     walkChildren(node, rootContext);
                 }
-                case "ASTVarRef" -> nextIdentifier(node.toString().substring(1));
+                case AST_VAR_REF -> nextIdentifier(node.toString().substring(1));
                 default -> walkChildren(node, !ELEMENT_CONTEXT_NODES.contains(type(node)) && rootContext);
             }
         }
 
-        private void walkChildren(final Node node, final boolean rootContext) {
+        private void walkChildren(Node node, boolean rootContext) {
             for (int i = 0; i < node.jjtGetNumChildren(); i++) {
                 walk(node.jjtGetChild(i), rootContext);
             }
@@ -206,9 +217,9 @@ public class OgnlExpression {
          * Erstes Glied einer Kette; liefert deren Wurzel oder {@code null}, wenn sie nicht auflösbar ist. Die Tokens
          * werden in jedem Fall verbraucht, damit die Zuordnung der folgenden Knoten stimmt.
          */
-        private @Nullable Chain walkChainStart(final Node node, final boolean rootContext, final List<Segment> segments) {
+        private @Nullable Chain walkChainStart(Node node, boolean rootContext, List<Segment> segments) {
             switch (type(node)) {
-                case "ASTProperty" -> {
+                case AST_PROPERTY -> {
                     if (isIndexed(node)) {
                         walkChildren(node, true);
                         return null;
@@ -218,14 +229,14 @@ public class OgnlExpression {
                     segments.add(segment);
                     return new Chain(RootKind.ROOT, null, segments);
                 }
-                case "ASTMethod" -> {
+                case AST_METHOD -> {
                     final Segment segment = segment(methodName(node), true, 0);
                     walkChildren(node, true);
                     if (segment == null || !rootContext) return null;
                     segments.add(segment);
                     return new Chain(RootKind.ROOT, null, segments);
                 }
-                case "ASTStaticField", "ASTStaticMethod" -> {
+                case AST_STATIC_FIELD, AST_STATIC_METHOD -> {
                     // "@java.lang.Math@max(a, b)" – auch bei "@@max" nennt toString() die Klasse
                     final String description = node.toString();
                     final String staticClass = StringUtils.substringBetween(description, "@", "@");
@@ -233,13 +244,13 @@ public class OgnlExpression {
                     nextToken("@");
                     className();
                     nextToken("@");
-                    final Segment segment = segment(member, "ASTStaticMethod".equals(type(node)), 0);
+                    final Segment segment = segment(member, AST_STATIC_METHOD.equals(type(node)), 0);
                     walkChildren(node, true);
                     if (segment == null || staticClass == null) return null;
                     segments.add(segment);
                     return new Chain(RootKind.STATIC, StringUtils.defaultIfEmpty(staticClass, DEFAULT_STATIC_CLASS), segments);
                 }
-                case "ASTRootVarRef" -> {
+                case AST_ROOT_VAR_REF -> {
                     return new Chain(RootKind.ROOT, null, segments);
                 }
                 default -> {
@@ -249,7 +260,7 @@ public class OgnlExpression {
             }
         }
 
-        private void walkChain(final Node chainNode, final boolean rootContext) {
+        private void walkChain(Node chainNode, boolean rootContext) {
             List<Segment> segments = new ArrayList<>();
             final Chain chain = walkChainStart(chainNode.jjtGetChild(0), rootContext, segments);
             if (chain == null) segments = null;
@@ -257,12 +268,12 @@ public class OgnlExpression {
             for (int i = 1; i < chainNode.jjtGetNumChildren(); i++) {
                 final Node child = chainNode.jjtGetChild(i);
                 final String type = type(child);
-                if ("ASTProperty".equals(type) && isIndexed(child)) {
+                if (AST_PROPERTY.equals(type) && isIndexed(child)) {
                     // Index wird gegen das Root-Objekt ausgewertet
                     walkChildren(child, true);
                     indexCount++;
-                } else if ("ASTProperty".equals(type) || "ASTMethod".equals(type)) {
-                    final boolean call = "ASTMethod".equals(type);
+                } else if (AST_PROPERTY.equals(type) || AST_METHOD.equals(type)) {
+                    final boolean call = AST_METHOD.equals(type);
                     final Segment segment = segment(call ? methodName(child) : child.toString(), call, indexCount);
                     if (call) walkChildren(child, true);
                     if (segments != null && segment != null) segments.add(segment);
@@ -277,25 +288,25 @@ public class OgnlExpression {
             if (segments != null) record(chain.rootKind(), chain.staticClass(), segments);
         }
 
-        private void record(final RootKind rootKind, @Nullable final String staticClass, final List<Segment> segments) {
+        private void record(RootKind rootKind, @Nullable String staticClass, List<Segment> segments) {
             if (!segments.isEmpty()) result.chains.add(new Chain(rootKind, staticClass, segments));
         }
 
-        private static boolean isIndexed(final Node property) {
+        private static boolean isIndexed(Node property) {
             return property.toString().startsWith("[");
         }
 
-        private static String methodName(final Node method) {
+        private static String methodName(Node method) {
             return StringUtils.substringBefore(method.toString(), "(");
         }
 
         /** Glied für den nächsten Bezeichner mit diesem Namen; {@code null}, wenn er sich nicht zuordnen lässt. */
-        private @Nullable Segment segment(final String name, final boolean call, final int indexCount) {
+        private @Nullable Segment segment(String name, boolean call, int indexCount) {
             final Located identifier = nextIdentifier(name);
             return identifier != null ? new Segment(name, identifier.range(), call, indexCount) : null;
         }
 
-        private @Nullable Located nextIdentifier(final String name) {
+        private @Nullable Located nextIdentifier(String name) {
             for (int i = cursor; i < tokens.size(); i++) {
                 final Located token = tokens.get(i);
                 if (token.isIdentifier() && token.is(name)) {
@@ -306,7 +317,7 @@ public class OgnlExpression {
             return null;
         }
 
-        private void nextToken(final String image) {
+        private void nextToken(String image) {
             for (int i = cursor; i < tokens.size(); i++) {
                 if (tokens.get(i).is(image)) {
                     cursor = i + 1;

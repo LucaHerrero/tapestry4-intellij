@@ -4,19 +4,20 @@ import com.intellij.openapi.util.TextRange;
 import junit.framework.TestCase;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 /** Unit-Tests für {@link OgnlExpression}: welche Ketten, Klassennamen und Syntaxfehler der OGNL-Parser liefert. */
 public class OgnlExpressionTest extends TestCase {
 
     /** Ketten als "a.b()" bzw. "@Klasse@a" (Indizes als "[]" vor dem Glied). */
-    private static List<String> chains(final String expression) {
+    private static List<String> chains(String expression) {
         return OgnlExpression.parse(expression).chains().stream().map(chain -> {
             final StringBuilder result = new StringBuilder(chain.rootKind() == OgnlExpression.RootKind.STATIC
                     ? "@%s@".formatted(chain.staticClass()) : "");
             for (int i = 0; i < chain.segments().size(); i++) {
                 final OgnlExpression.Segment segment = chain.segments().get(i);
                 if (i > 0) result.append('.');
-                result.append("[]".repeat(segment.indexCount())).append(segment.name()).append(segment.call() ? "()" : "");
+                result.repeat("[]", segment.indexCount()).append(segment.name()).append(segment.call() ? "()" : "");
             }
             return result.toString();
         }).sorted().toList();
@@ -35,7 +36,7 @@ public class OgnlExpressionTest extends TestCase {
     }
 
     public void testMethodArgumentsAreRootContext() {
-        assertEquals(List.of("format()", "user.birthday", "user.name").stream().sorted().toList(),
+        assertEquals(Stream.of("format()", "user.birthday", "user.name").sorted().toList(),
                 chains("format(user.birthday, user.name)"));
         assertEquals(List.of("index", "messages.format()"), chains("messages.format('key', index)"));
     }
@@ -100,7 +101,7 @@ public class OgnlExpressionTest extends TestCase {
     }
 
     public void testRanges() {
-        final OgnlExpression.Chain chain = OgnlExpression.parse(" user.name").chains().get(0);
+        final OgnlExpression.Chain chain = OgnlExpression.parse(" user.name").chains().getFirst();
         assertEquals(1, chain.segments().get(0).range().getStartOffset());
         assertEquals(6, chain.segments().get(1).range().getStartOffset());
         assertEquals(10, chain.segments().get(1).range().getEndOffset());

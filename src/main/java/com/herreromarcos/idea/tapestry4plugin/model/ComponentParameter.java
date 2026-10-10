@@ -16,11 +16,11 @@ public record ComponentParameter(String name,
                                  boolean deprecated,
                                  PsiElement declaration) {
 
-    public boolean matches(final String attributeName) {
+    public boolean matches(String attributeName) {
         return name.equalsIgnoreCase(attributeName) || isAlias(attributeName);
     }
 
-    public boolean isAlias(final String attributeName) {
+    public boolean isAlias(String attributeName) {
         return aliases.stream().anyMatch(a -> a.equalsIgnoreCase(attributeName));
     }
 }

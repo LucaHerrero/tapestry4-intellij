@@ -7,6 +7,7 @@ import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.openapi.util.TextRange;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.*;
 import com.intellij.psi.util.InheritanceUtil;
 import com.intellij.psi.util.PropertyUtilBase;
@@ -61,9 +62,9 @@ public class OgnlPropertyReference extends TapestryReferenceBase {
      * @param methodCall  {@code name(...)}
      * @param indexCount  Anzahl der Indizes zwischen Vorgänger und diesem Glied
      */
-    public OgnlPropertyReference(@NotNull final PsiElement element, @NotNull final TextRange range,
-                                 @Nullable final OgnlPropertyReference previous, @Nullable final String staticClass,
-                                 final boolean methodCall, final int indexCount) {
+    public OgnlPropertyReference(@NotNull PsiElement element, @NotNull TextRange range,
+                                 @Nullable OgnlPropertyReference previous, @Nullable String staticClass,
+                                 boolean methodCall, int indexCount) {
         super(element, range);
         this.previous = previous;
         this.staticClass = staticClass;
@@ -103,7 +104,7 @@ public class OgnlPropertyReference extends TapestryReferenceBase {
     }
 
     /** Typ von {@code value[index]}: Komponente eines Arrays, Element einer List, Wert einer Map. */
-    private static @Nullable PsiType elementType(final PsiType type) {
+    private static @Nullable PsiType elementType(PsiType type) {
         if (type instanceof final PsiArrayType array) return array.getComponentType();
         final PsiType listElement = PsiUtil.substituteTypeParameter(type, "java.util.List", 0, false);
         return listElement != null ? listElement : PsiUtil.substituteTypeParameter(type, "java.util.Map", 1, false);
@@ -125,7 +126,7 @@ public class OgnlPropertyReference extends TapestryReferenceBase {
         return null;
     }
 
-    private @Nullable Target resolveStatic(final PsiClass cls, final String name) {
+    private @Nullable Target resolveStatic(PsiClass cls, String name) {
         if (methodCall) {
             for (final PsiMethod method : cls.findMethodsByName(name, true)) {
                 if (method.hasModifierProperty(PsiModifier.STATIC)) return new Target(method, method.getReturnType());
@@ -136,12 +137,10 @@ public class OgnlPropertyReference extends TapestryReferenceBase {
         return field != null && field.hasModifierProperty(PsiModifier.STATIC) ? new Target(field, field.getType()) : null;
     }
 
-    private @Nullable Target resolveMember(final PsiClass cls, final PsiSubstitutor substitutor, final String name) {
+    private @Nullable Target resolveMember(PsiClass cls, PsiSubstitutor substitutor, String name) {
         if (methodCall) {
-            for (final PsiMethod method : cls.findMethodsByName(name, true)) {
-                return new Target(method, substitutor.substitute(method.getReturnType()));
-            }
-            return null;
+            final PsiMethod[] methods = cls.findMethodsByName(name, true);
+            return methods.length > 0 ? new Target(methods[0], substitutor.substitute(methods[0].getReturnType())) : null;
         }
         final PsiMethod getter = PropertyUtilBase.findPropertyGetter(cls, name, false, true);
         if (getter != null) return new Target(getter, substitutor.substitute(getter.getReturnType()));
@@ -202,7 +201,7 @@ public class OgnlPropertyReference extends TapestryReferenceBase {
     }
 
     @Override
-    public PsiElement handleElementRename(@NotNull final String newElementName) throws IncorrectOperationException {
+    public PsiElement handleElementRename(@NotNull String newElementName) throws IncorrectOperationException {
         final PsiElement target = resolve();
         if (!methodCall && target instanceof final PsiMethod method && PropertyUtilBase.isSimplePropertyAccessor(method)) {
             final String property = PropertyUtilBase.getPropertyName(newElementName);
@@ -225,7 +224,8 @@ public class OgnlPropertyReference extends TapestryReferenceBase {
     @Override
     public @NotNull String getUnresolvedMessage() {
         final Qualifier q = qualifier();
-        final String kind = q.staticOnly() ? methodCall ? "Static method" : "Static field" : methodCall ? "Method" : "Property";
+        final String member = methodCall ? "method" : q.staticOnly() ? "field" : "property";
+        final String kind = StringUtil.capitalize(q.staticOnly() ? "static " + member : member);
         return "%s '%s' not found in %s".formatted(kind, getValue().trim(), q.psiClass() != null ? q.psiClass().getName() : "?");
     }
 }

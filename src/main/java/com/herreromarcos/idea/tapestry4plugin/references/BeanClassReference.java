@@ -19,7 +19,7 @@ import static com.herreromarcos.idea.tapestry4plugin.TapestryConstants.META_BEAN
  */
 public class BeanClassReference extends TapestryReferenceBase {
 
-    public BeanClassReference(@NotNull final PsiElement element, @NotNull final TextRange range) {
+    public BeanClassReference(@NotNull PsiElement element, @NotNull TextRange range) {
         super(element, range);
     }
 

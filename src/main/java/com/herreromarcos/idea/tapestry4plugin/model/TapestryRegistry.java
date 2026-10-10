@@ -1,7 +1,6 @@
 package com.herreromarcos.idea.tapestry4plugin.model;
 
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.roots.ProjectRootModificationTracker;
 import com.intellij.openapi.util.Key;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VfsUtilCore;
@@ -12,9 +11,6 @@ import com.intellij.psi.PsiManager;
 import com.intellij.psi.search.FilenameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
-import com.intellij.psi.util.PsiModificationTracker;
 import com.intellij.psi.xml.XmlFile;
 import com.intellij.psi.xml.XmlTag;
 import org.jetbrains.annotations.NotNull;
@@ -46,21 +42,19 @@ public class TapestryRegistry {
 
     // ------------------------------------------------------------------ Komponententypen
 
-    public static @NotNull Map<String, VirtualFile> getComponentTypes(@NotNull final Project project) {
-        return CachedValuesManager.getManager(project).getCachedValue(project, COMPONENT_TYPES_KEY, () ->
-                CachedValueProvider.Result.create(computeComponentTypes(project),
-                        PsiModificationTracker.MODIFICATION_COUNT, ProjectRootModificationTracker.getInstance(project)), false);
+    public static @NotNull Map<String, VirtualFile> getComponentTypes(@NotNull Project project) {
+        return ProjectCache.get(project, COMPONENT_TYPES_KEY, () -> computeComponentTypes(project));
     }
 
     /** Alle Typnamen für die Completion; ohne Tapestry-JAR im Classpath ergänzt um die bekannten Framework-Komponenten. */
-    public static @NotNull Collection<String> getAllTypeNames(@NotNull final Project project) {
+    public static @NotNull Collection<String> getAllTypeNames(@NotNull Project project) {
         final Set<String> names = new LinkedHashSet<>(getComponentTypes(project).keySet());
         if (!isFrameworkPresent(project)) names.addAll(FRAMEWORK_COMPONENTS);
         return names;
     }
 
     /** Löst "Insert", "contrib:Table" oder eine Pfadangabe wie "common/Border" auf die .jwc-Datei auf. */
-    public static @Nullable XmlFile resolveComponentType(@NotNull final String typeName, @NotNull final PsiElement context) {
+    public static @Nullable XmlFile resolveComponentType(@NotNull String typeName, @NotNull PsiElement context) {
         final String type = typeName.trim();
         if (type.isEmpty()) return null;
         final Project project = context.getProject();
@@ -72,7 +66,7 @@ public class TapestryRegistry {
         return psi instanceof final XmlFile xml ? xml : null;
     }
 
-    private static @Nullable VirtualFile resolveTypePath(final String type, final PsiElement context, final Map<String, VirtualFile> types) {
+    private static @Nullable VirtualFile resolveTypePath(String type, PsiElement context, Map<String, VirtualFile> types) {
         final String fileSuffix = "%s.%s".formatted(type, EXT_COMPONENT);
         final VirtualFile base = context.getContainingFile().getOriginalFile().getVirtualFile();
         final VirtualFile relative = base != null && base.getParent() != null ? base.getParent().findFileByRelativePath(fileSuffix) : null;
@@ -82,24 +76,22 @@ public class TapestryRegistry {
     }
 
     /** Liegt die Tapestry-Framework-Bibliothek im Classpath? Sonst werden Framework-Komponenten nicht als Fehler markiert. */
-    public static boolean isFrameworkPresent(@NotNull final Project project) {
-        return CachedValuesManager.getManager(project).getCachedValue(project, FRAMEWORK_PRESENT_KEY, () ->
-                CachedValueProvider.Result.create(!findFrameworkLibraries(project).isEmpty(),
-                        ProjectRootModificationTracker.getInstance(project), PsiModificationTracker.MODIFICATION_COUNT), false);
+    public static boolean isFrameworkPresent(@NotNull Project project) {
+        return ProjectCache.get(project, FRAMEWORK_PRESENT_KEY, () -> !findFrameworkLibraries(project).isEmpty());
     }
 
     /** Typen mit Seitenlink-Semantik (Parameter "page" ist ein Seitenname). */
-    public static boolean isPageLink(@Nullable final String type) {
+    public static boolean isPageLink(@Nullable String type) {
         return type != null && type.endsWith(PAGE_LINK);
     }
 
-    private static List<VirtualFile> findFrameworkLibraries(final Project project) {
+    private static List<VirtualFile> findFrameworkLibraries(Project project) {
         return FilenameIndex.getVirtualFilesByName(FRAMEWORK_LIBRARY, GlobalSearchScope.allScope(project)).stream()
                 .filter(vf -> vf.getPath().contains("org/apache/tapestry/"))
                 .toList();
     }
 
-    private static Map<String, VirtualFile> computeComponentTypes(final Project project) {
+    private static Map<String, VirtualFile> computeComponentTypes(Project project) {
         final Map<String, VirtualFile> unprefixed = new LinkedHashMap<>();
         final Map<String, VirtualFile> prefixed = new LinkedHashMap<>();
         final GlobalSearchScope projectScope = GlobalSearchScope.projectScope(project);
@@ -140,7 +132,7 @@ public class TapestryRegistry {
     }
 
     /** Über {@code <library id specification-path>} eingebundene Bibliotheken (auch verschachtelte) → library id. */
-    private static Map<VirtualFile, String> findReferencedLibraries(final Project project) {
+    private static Map<VirtualFile, String> findReferencedLibraries(Project project) {
         final Map<VirtualFile, String> libraries = new LinkedHashMap<>();
         final GlobalSearchScope projectScope = GlobalSearchScope.projectScope(project);
         for (final String ext : List.of(EXT_APPLICATION, EXT_LIBRARY)) {
@@ -163,7 +155,7 @@ public class TapestryRegistry {
         return libraries;
     }
 
-    private static List<VirtualFile> siblings(final VirtualFile file) {
+    private static List<VirtualFile> siblings(VirtualFile file) {
         final VirtualFile folder = file.getParent();
         return folder != null ? List.of(folder.getChildren()) : List.of();
     }
@@ -175,17 +167,15 @@ public class TapestryRegistry {
      * Application-Namespace. Zur Bibliothek gehören die über {@code <component-type>}/{@code <page>} eingetragenen
      * Spezifikationen und die Dateien im Ordner der Bibliotheksspezifikation (sofern dort keine .application liegt).
      */
-    public static @Nullable VirtualFile findLibrary(@NotNull final Project project, @NotNull final VirtualFile file) {
-        final Map<VirtualFile, VirtualFile> members = CachedValuesManager.getManager(project).getCachedValue(project, LIBRARY_MEMBERS_KEY, () ->
-                CachedValueProvider.Result.create(computeLibraryMembers(project),
-                        PsiModificationTracker.MODIFICATION_COUNT, ProjectRootModificationTracker.getInstance(project)), false);
+    public static @Nullable VirtualFile findLibrary(@NotNull Project project, @NotNull VirtualFile file) {
+        final Map<VirtualFile, VirtualFile> members = ProjectCache.get(project, LIBRARY_MEMBERS_KEY, () -> computeLibraryMembers(project));
         final VirtualFile library = members.get(file);
         if (library != null) return library;
         return file.getParent() != null ? members.get(file.getParent()) : null;
     }
 
     /** Mitglied (Spezifikation oder Ordner) → Bibliothek. */
-    private static Map<VirtualFile, VirtualFile> computeLibraryMembers(final Project project) {
+    private static Map<VirtualFile, VirtualFile> computeLibraryMembers(Project project) {
         final Set<VirtualFile> libraries = new LinkedHashSet<>(findReferencedLibraries(project).keySet());
         libraries.addAll(FilenameIndex.getAllFilesByExt(project, EXT_LIBRARY, GlobalSearchScope.projectScope(project)));
         libraries.addAll(findFrameworkLibraries(project));
@@ -199,18 +189,18 @@ public class TapestryRegistry {
         return members;
     }
 
-    private static void collectComponentTypes(final Project project, final VirtualFile specFile, @Nullable final String prefix, final Map<String, VirtualFile> out) {
+    private static void collectComponentTypes(Project project, VirtualFile specFile, @Nullable String prefix, Map<String, VirtualFile> out) {
         forEachPathEntry(project, specFile, TAG_COMPONENT_TYPE, ATTR_TYPE,
                 (type, target) -> out.put(prefix == null ? type : "%s:%s".formatted(prefix, type), target));
     }
 
-    private static void collectLibraries(final Project project, final VirtualFile specFile, final Map<VirtualFile, String> out) {
+    private static void collectLibraries(Project project, VirtualFile specFile, Map<VirtualFile, String> out) {
         forEachPathEntry(project, specFile, TAG_LIBRARY, ATTR_ID, (id, target) -> out.putIfAbsent(target, id));
     }
 
     /** Für {@code <tag key="..." specification-path="...">}: Schlüssel und aufgelöste Zieldatei. */
-    private static void forEachPathEntry(final Project project, final VirtualFile specFile, final String tagName, final String keyAttribute,
-                                         final PathEntryConsumer consumer) {
+    private static void forEachPathEntry(Project project, VirtualFile specFile, String tagName, String keyAttribute,
+                                         PathEntryConsumer consumer) {
         final XmlTag root = SpecXml.rootTag(project, specFile);
         if (root == null) return;
         for (final XmlTag tag : root.findSubTags(tagName)) {
@@ -229,18 +219,16 @@ public class TapestryRegistry {
     // ------------------------------------------------------------------ Seiten
 
     /** Seitenname → .page (oder Template einer spezifikationslosen Seite). */
-    public static @NotNull Map<String, VirtualFile> getPages(@NotNull final Project project) {
-        return CachedValuesManager.getManager(project).getCachedValue(project, PAGES_KEY, () ->
-                CachedValueProvider.Result.create(computePages(project),
-                        PsiModificationTracker.MODIFICATION_COUNT, ProjectRootModificationTracker.getInstance(project)), false);
+    public static @NotNull Map<String, VirtualFile> getPages(@NotNull Project project) {
+        return ProjectCache.get(project, PAGES_KEY, () -> computePages(project));
     }
 
-    public static @Nullable PsiFile resolvePage(@NotNull final String name, @NotNull final PsiElement context) {
+    public static @Nullable PsiFile resolvePage(@NotNull String name, @NotNull PsiElement context) {
         final VirtualFile vf = getPages(context.getProject()).get(name.trim());
         return vf != null && vf.isValid() ? PsiManager.getInstance(context.getProject()).findFile(vf) : null;
     }
 
-    private static Map<String, VirtualFile> computePages(final Project project) {
+    private static Map<String, VirtualFile> computePages(Project project) {
         final Map<String, VirtualFile> result = new LinkedHashMap<>();
         final GlobalSearchScope scope = GlobalSearchScope.projectScope(project);
         // 1. <page name="..." specification-path="..."> der .application

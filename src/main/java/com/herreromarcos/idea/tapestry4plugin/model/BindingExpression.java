@@ -27,16 +27,16 @@ public record BindingExpression(@Nullable String prefix, @Nullable String custom
     private static final Pattern PREFIX = Pattern.compile("^\\s*([A-Za-z][A-Za-z0-9_-]*):");
 
     /** Zerlegung nur mit den dokumentierten Präfixen. */
-    public static @NotNull BindingExpression parse(@NotNull final String text) {
+    public static @NotNull BindingExpression parse(@NotNull String text) {
         return parse(text, Set.of());
     }
 
     /** Zerlegung mit den dokumentierten und den im Projekt registrierten Präfixen. */
-    public static @NotNull BindingExpression parse(@NotNull final String text, @NotNull final PsiElement context) {
+    public static @NotNull BindingExpression parse(@NotNull String text, @NotNull PsiElement context) {
         return parse(text, BindingPrefixes.getCustom(context.getProject()));
     }
 
-    public static @NotNull BindingExpression parse(@NotNull final String text, @NotNull final Set<String> customPrefixes) {
+    public static @NotNull BindingExpression parse(@NotNull String text, @NotNull Set<String> customPrefixes) {
         final Matcher matcher = PREFIX.matcher(text);
         if (!matcher.find()) return new BindingExpression(null, null, null, 0, text);
         final String candidate = matcher.group(1);
@@ -54,7 +54,7 @@ public record BindingExpression(@Nullable String prefix, @Nullable String custom
     }
 
     /** Effektives, auswertbares Präfix: das dokumentierte Präfix, sonst das Standard-Präfix – bei projekteigenem keines. */
-    public @Nullable String effectivePrefix(@Nullable final String defaultPrefix) {
+    public @Nullable String effectivePrefix(@Nullable String defaultPrefix) {
         if (customPrefix != null) return null;
         return prefix != null ? prefix : defaultPrefix;
     }

@@ -21,7 +21,7 @@ public class OgnlPropertyReferenceSearcher extends QueryExecutorBase<PsiReferenc
     }
 
     @Override
-    public void processQuery(@NotNull final MethodReferencesSearch.SearchParameters parameters, @NotNull final Processor<? super PsiReference> consumer) {
+    public void processQuery(@NotNull MethodReferencesSearch.SearchParameters parameters, @NotNull Processor<? super PsiReference> consumer) {
         final PsiMethod method = parameters.getMethod();
         if (!PropertyUtilBase.isSimplePropertyAccessor(method)) return;
         final String propertyName = PropertyUtilBase.getPropertyName(method);

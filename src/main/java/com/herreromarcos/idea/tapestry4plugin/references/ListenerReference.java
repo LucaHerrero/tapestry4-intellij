@@ -20,7 +20,7 @@ import java.util.Map;
 /** {@code listener:onSubmit} → Listener-Methode der Seiten-/Komponentenklasse. */
 public class ListenerReference extends TapestryReferenceBase {
 
-    public ListenerReference(@NotNull final PsiElement element, @NotNull final TextRange range) {
+    public ListenerReference(@NotNull PsiElement element, @NotNull TextRange range) {
         super(element, range);
     }
 
@@ -71,7 +71,7 @@ public class ListenerReference extends TapestryReferenceBase {
                 : "Listener method '%s' not found in %s".formatted(name, owner);
     }
 
-    private static boolean isListenerCandidate(final PsiMethod method) {
+    private static boolean isListenerCandidate(PsiMethod method) {
         return !method.isConstructor() && method.hasModifierProperty(PsiModifier.PUBLIC) && !method.hasModifierProperty(PsiModifier.STATIC);
     }
 }

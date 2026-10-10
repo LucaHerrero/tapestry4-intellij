@@ -22,7 +22,7 @@ import java.util.Map;
 /** Verweis auf einen Komponententyp ({@code @Insert}, {@code type="contrib:Table"}) – löst auf die .jwc-Datei auf. */
 public class ComponentTypeReference extends TapestryReferenceBase {
 
-    public ComponentTypeReference(@NotNull final PsiElement element, @NotNull final TextRange range) {
+    public ComponentTypeReference(@NotNull PsiElement element, @NotNull TextRange range) {
         super(element, range);
     }
 
@@ -44,7 +44,7 @@ public class ComponentTypeReference extends TapestryReferenceBase {
     }
 
     @Override
-    public PsiElement handleElementRename(@NotNull final String newElementName) throws IncorrectOperationException {
+    public PsiElement handleElementRename(@NotNull String newElementName) throws IncorrectOperationException {
         final String value = getValue();
         final String newName = StringUtil.trimEnd(newElementName, "." + TapestryConstants.EXT_COMPONENT);
         final int separator = StringUtils.lastIndexOfAny(value, "/", ":");
@@ -56,7 +56,7 @@ public class ComponentTypeReference extends TapestryReferenceBase {
         final String type = getValue().trim();
         if (type.isEmpty()) return HighlightSeverity.ERROR;
         final boolean frameworkPresent = TapestryRegistry.isFrameworkPresent(getElement().getProject());
-        if (!frameworkPresent && TapestryConstants.FRAMEWORK_COMPONENTS.contains(StringUtil.trimStart(type, "framework:"))) {
+        if (!frameworkPresent && TapestryConstants.FRAMEWORK_COMPONENTS.contains(StringUtil.trimStart(type, TapestryConstants.FRAMEWORK_NAMESPACE + ":"))) {
             return null;
         }
         return HighlightSeverity.WARNING;

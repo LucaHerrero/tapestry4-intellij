@@ -30,7 +30,7 @@ public class ComponentModel {
     // ------------------------------------------------------------------ Deklarierte Komponenten
 
     /** Komponenten aus {@code <component>} der Spezifikation und {@code @Component} der Klasse (Spezifikation gewinnt). */
-    public static @NotNull List<DeclaredComponent> getDeclaredComponents(@NotNull final TapestryContext ctx) {
+    public static @NotNull List<DeclaredComponent> getDeclaredComponents(@NotNull TapestryContext ctx) {
         final List<DeclaredComponent> result = new ArrayList<>();
         final Set<String> seen = new HashSet<>();
         final XmlTag root = SpecXml.rootTag(ctx.spec());
@@ -49,7 +49,7 @@ public class ComponentModel {
         return result;
     }
 
-    private static @Nullable DeclaredComponent fromSpecTag(final XmlTag tag) {
+    private static @Nullable DeclaredComponent fromSpecTag(XmlTag tag) {
         final XmlAttribute idAttr = tag.getAttribute(ATTR_ID);
         if (idAttr == null || idAttr.getValueElement() == null) return null;
         final Set<String> bound = new HashSet<>();
@@ -63,7 +63,7 @@ public class ComponentModel {
                 SpecXml.attr(tag, ATTR_COPY_OF), idAttr.getValueElement(), bound);
     }
 
-    private static @Nullable DeclaredComponent fromAnnotation(final PsiMethod method) {
+    private static @Nullable DeclaredComponent fromAnnotation(PsiMethod method) {
         final PsiAnnotation annotation = method.getModifierList().findAnnotation(ANNOTATION_COMPONENT);
         if (annotation == null) return null;
         final String explicitId = annotationString(annotation, "id");
@@ -84,7 +84,7 @@ public class ComponentModel {
     }
 
     /** Typ einer deklarierten Komponente; copy-of wird verfolgt. */
-    public static @Nullable String getEffectiveType(@NotNull final TapestryContext ctx, @NotNull final DeclaredComponent component) {
+    public static @Nullable String getEffectiveType(@NotNull TapestryContext ctx, @NotNull DeclaredComponent component) {
         DeclaredComponent current = component;
         for (int i = 0; i < MAX_COPY_OF_DEPTH && current != null; i++) {
             if (current.type() != null) return current.type();
@@ -95,7 +95,7 @@ public class ComponentModel {
     }
 
     /** In Spezifikation/Annotation gebundene Parameter; bei copy-of inklusive der Bindings des Originals. */
-    public static @NotNull Set<String> getBoundParameters(@NotNull final TapestryContext ctx, @NotNull final DeclaredComponent component) {
+    public static @NotNull Set<String> getBoundParameters(@NotNull TapestryContext ctx, @NotNull DeclaredComponent component) {
         final Set<String> bound = new HashSet<>();
         DeclaredComponent current = component;
         for (int i = 0; i < MAX_COPY_OF_DEPTH && current != null; i++) {
@@ -106,7 +106,7 @@ public class ComponentModel {
     }
 
     /** Komponententyp eines Template-Tags mit jwcid ({@code @Insert}, {@code id@Insert} oder deklarierte id). */
-    public static @Nullable String getComponentTypeOfTag(@NotNull final XmlTag tag) {
+    public static @Nullable String getComponentTypeOfTag(@NotNull XmlTag tag) {
         final String value = TapestryConfiguration.findJwcidValue(tag);
         if (value == null) return null;
         final Jwcid jwcid = Jwcid.parse(value);
@@ -117,8 +117,16 @@ public class ComponentModel {
         return declared != null ? getEffectiveType(ctx, declared) : null;
     }
 
+    /** Typ eines {@code <component>} der Spezifikation: über die Deklaration (inkl. copy-of), sonst das type-Attribut. */
+    public static @Nullable String getComponentTypeOfSpecTag(@NotNull XmlTag component) {
+        final TapestryContext ctx = TapestryModel.getContext(component.getContainingFile());
+        final String id = SpecXml.attr(component, ATTR_ID);
+        final DeclaredComponent declared = id != null ? findDeclaredComponent(ctx, id) : null;
+        return declared != null ? getEffectiveType(ctx, declared) : SpecXml.attr(component, ATTR_TYPE);
+    }
+
     /** Spezifikation (.jwc) der Komponente eines Template-Tags mit jwcid. */
-    public static @Nullable XmlFile getComponentSpecOfTag(@NotNull final XmlTag tag) {
+    public static @Nullable XmlFile getComponentSpecOfTag(@NotNull XmlTag tag) {
         if (!TapestryConfiguration.isComponentTag(tag)) return null;
         final String type = getComponentTypeOfTag(tag);
         return type != null ? TapestryRegistry.resolveComponentType(type, tag) : null;
@@ -127,24 +135,25 @@ public class ComponentModel {
     // ------------------------------------------------------------------ Parameter
 
     /** Formale Parameter: {@code <parameter>} der .jwc plus {@code @Parameter} der Komponentenklasse. */
-    public static @NotNull List<ComponentParameter> getParameters(@NotNull final PsiFile componentSpec) {
+    public static @NotNull List<ComponentParameter> getParameters(@NotNull PsiFile componentSpec) {
         if (!(componentSpec instanceof final XmlFile xml)) return List.of();
         return CachedValuesManager.getCachedValue(xml, () ->
                 CachedValueProvider.Result.create(computeParameters(xml), PsiModificationTracker.MODIFICATION_COUNT));
     }
 
-    private static List<ComponentParameter> computeParameters(final XmlFile spec) {
+    private static List<ComponentParameter> computeParameters(XmlFile spec) {
         final List<ComponentParameter> result = new ArrayList<>();
         final Set<String> names = new HashSet<>();
         final XmlTag root = spec.getRootTag();
         if (root != null) {
             for (final XmlTag tag : root.findSubTags(TAG_PARAMETER)) {
                 final XmlAttribute nameAttr = tag.getAttribute(ATTR_NAME);
+                final XmlAttributeValue nameValue = nameAttr != null ? nameAttr.getValueElement() : null;
                 final String name = SpecXml.attr(tag, ATTR_NAME);
-                if (name == null || nameAttr.getValueElement() == null || !names.add(name)) continue;
+                if (name == null || nameValue == null || !names.add(name)) continue;
                 result.add(new ComponentParameter(name, SpecXml.isTrue(tag.getAttributeValue("required")),
                         SpecXml.splitList(tag.getAttributeValue("aliases")), SpecXml.isTrue(tag.getAttributeValue("deprecated")),
-                        nameAttr.getValueElement()));
+                        nameValue));
             }
         }
         final PsiClass cls = TapestryModel.getContext(spec).declaredClass();
@@ -167,17 +176,17 @@ public class ComponentModel {
         return getParameters(componentSpec).stream().filter(p -> p.matches(name)).findFirst().orElse(null);
     }
 
-    public static boolean allowsInformalParameters(@NotNull final PsiFile componentSpec) {
+    public static boolean allowsInformalParameters(@NotNull PsiFile componentSpec) {
         return componentFlag(componentSpec, "allow-informal-parameters", "allowInformalParameters");
     }
 
     /** {@code allow-body="no"} ("Body: removed"): der Body wird verworfen, Komponenten darin sind ein Fehler. */
-    public static boolean allowsBody(@NotNull final PsiFile componentSpec) {
+    public static boolean allowsBody(@NotNull PsiFile componentSpec) {
         return componentFlag(componentSpec, "allow-body", "allowBody");
     }
 
     /** {@code deprecated="yes"} der Spezifikation bzw. {@code @ComponentClass} mit {@code @Deprecated}: Verwendung erzeugt eine Warnung. */
-    public static boolean isDeprecated(@NotNull final PsiFile componentSpec) {
+    public static boolean isDeprecated(@NotNull PsiFile componentSpec) {
         final PsiClass cls = componentClassWithAnnotation(componentSpec);
         if (cls != null && cls.isDeprecated()) return true;
         final XmlTag root = SpecXml.rootTag(componentSpec);
@@ -189,7 +198,7 @@ public class ComponentModel {
      * {@code <reserved-parameter>}, {@code @ComponentClass(reservedParameters = "...")} – formale Parameter sind
      * laut Doku automatisch reserviert und werden separat behandelt.
      */
-    public static @NotNull Set<String> getReservedParameters(@NotNull final PsiFile componentSpec) {
+    public static @NotNull Set<String> getReservedParameters(@NotNull PsiFile componentSpec) {
         final Set<String> result = new HashSet<>();
         final XmlTag root = SpecXml.rootTag(componentSpec);
         if (root != null) {
@@ -198,8 +207,7 @@ public class ComponentModel {
                 if (name != null) result.add(normalize(name));
             }
         }
-        final PsiClass cls = componentClassWithAnnotation(componentSpec);
-        final PsiAnnotation componentClass = cls != null ? cls.getModifierList().findAnnotation(ANNOTATION_COMPONENT_CLASS) : null;
+        final PsiAnnotation componentClass = componentClassAnnotation(componentSpec);
         if (componentClass != null) {
             SpecXml.splitList(AnnotationUtil.getStringAttributeValue(componentClass, "reservedParameters"))
                     .forEach(name -> result.add(normalize(name)));
@@ -207,17 +215,19 @@ public class ComponentModel {
         return result;
     }
 
-    private static @Nullable PsiClass componentClassWithAnnotation(final PsiFile componentSpec) {
+    private static @Nullable PsiClass componentClassWithAnnotation(PsiFile componentSpec) {
         final PsiClass cls = TapestryModel.getContext(componentSpec).declaredClass();
-        return cls != null && cls.getModifierList() != null && cls.getModifierList().findAnnotation(ANNOTATION_COMPONENT_CLASS) != null
-                ? cls : null;
+        return cls != null && AnnotationUtil.findAnnotation(cls, ANNOTATION_COMPONENT_CLASS) != null ? cls : null;
+    }
+
+    private static @Nullable PsiAnnotation componentClassAnnotation(PsiFile componentSpec) {
+        final PsiClass cls = TapestryModel.getContext(componentSpec).declaredClass();
+        return cls != null ? AnnotationUtil.findAnnotation(cls, ANNOTATION_COMPONENT_CLASS) : null;
     }
 
     /** Flag aus {@code @ComponentClass} (überschreibt die Spezifikation, Default true) bzw. aus dem Wurzel-Tag. */
-    private static boolean componentFlag(final PsiFile componentSpec, final String specAttribute, final String annotationAttribute) {
-        final PsiClass cls = TapestryModel.getContext(componentSpec).declaredClass();
-        final PsiAnnotation componentClass = cls != null ? cls.getModifierList() != null
-                ? cls.getModifierList().findAnnotation(ANNOTATION_COMPONENT_CLASS) : null : null;
+    private static boolean componentFlag(PsiFile componentSpec, String specAttribute, String annotationAttribute) {
+        final PsiAnnotation componentClass = componentClassAnnotation(componentSpec);
         if (componentClass != null) {
             return !Boolean.FALSE.equals(AnnotationUtil.getBooleanAttributeValue(componentClass, annotationAttribute));
         }
@@ -233,7 +243,7 @@ public class ComponentModel {
      * {@code property}-Attribut von {@code <inject>}, {@code <bean>}, {@code <asset>} und {@code <component>}.
      * Aus der 3.0-DTD zusätzlich {@code <property-specification>} und {@code <parameter property-name>}.
      */
-    public static @NotNull Map<String, XmlAttributeValue> getSpecProperties(@Nullable final XmlFile spec) {
+    public static @NotNull Map<String, XmlAttributeValue> getSpecProperties(@Nullable XmlFile spec) {
         final XmlTag root = SpecXml.rootTag(spec);
         if (root == null) return Map.of();
         final Map<String, XmlAttributeValue> result = new LinkedHashMap<>();
@@ -250,7 +260,7 @@ public class ComponentModel {
         return result;
     }
 
-    private static @Nullable XmlAttribute firstPresent(final XmlTag tag, final String... names) {
+    private static @Nullable XmlAttribute firstPresent(XmlTag tag, String... names) {
         for (final String name : names) {
             final XmlAttribute attribute = tag.getAttribute(name);
             if (attribute != null && !StringUtil.isEmptyOrSpaces(attribute.getValue())) return attribute;
@@ -259,7 +269,7 @@ public class ComponentModel {
     }
 
     /** Getter mit der Annotation (z.B. {@code @Asset}, {@code @Bean}); der Name ist der Eigenschaftsname. */
-    public static @NotNull Map<String, PsiMethod> getAnnotatedProperties(@Nullable final PsiClass cls, @NotNull final String annotation) {
+    public static @NotNull Map<String, PsiMethod> getAnnotatedProperties(@Nullable PsiClass cls, @NotNull String annotation) {
         if (cls == null) return Map.of();
         final Map<String, PsiMethod> result = new LinkedHashMap<>();
         for (final PsiMethod method : cls.getAllMethods()) {
@@ -271,11 +281,11 @@ public class ComponentModel {
     }
 
     /** Parameternamen werden case-insensitiv verglichen (HTML-Attribute). */
-    public static @NotNull String normalize(@NotNull final String parameterName) {
+    public static @NotNull String normalize(@NotNull String parameterName) {
         return parameterName.trim().toLowerCase(Locale.ROOT);
     }
 
-    private static @Nullable String annotationString(final PsiAnnotation annotation, final String attribute) {
+    private static @Nullable String annotationString(PsiAnnotation annotation, String attribute) {
         return StringUtil.nullize(AnnotationUtil.getStringAttributeValue(annotation, attribute));
     }
 }

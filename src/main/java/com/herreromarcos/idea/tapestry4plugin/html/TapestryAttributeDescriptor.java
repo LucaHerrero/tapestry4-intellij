@@ -11,7 +11,7 @@ public class TapestryAttributeDescriptor extends BasicXmlAttributeDescriptor {
     private final String name;
     private final @Nullable PsiElement declaration;
 
-    public TapestryAttributeDescriptor(@NotNull final String name, @Nullable final PsiElement declaration) {
+    public TapestryAttributeDescriptor(@NotNull String name, @Nullable PsiElement declaration) {
         this.name = name;
         this.declaration = declaration;
     }
@@ -63,6 +63,6 @@ public class TapestryAttributeDescriptor extends BasicXmlAttributeDescriptor {
     }
 
     @Override
-    public void init(final PsiElement element) {
+    public void init(PsiElement element) {
     }
 }

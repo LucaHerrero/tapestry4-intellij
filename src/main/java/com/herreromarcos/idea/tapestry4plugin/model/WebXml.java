@@ -32,7 +32,7 @@ public class WebXml {
     }
 
     /** Servlet-Namen aus WEB-INF/web.xml – der Namespace-Katalog der Anwendung heißt wie das Servlet. */
-    public static @NotNull List<String> servletNames(@NotNull final Project project, @NotNull final VirtualFile webInf) {
+    public static @NotNull List<String> servletNames(@NotNull Project project, @NotNull VirtualFile webInf) {
         final XmlTag root = rootTag(project, webInf.findChild(WEB_XML));
         final List<String> result = new ArrayList<>();
         for (final XmlTag servlet : children(root, TAG_SERVLET)) {
@@ -47,7 +47,7 @@ public class WebXml {
      * {@code <init-param>} der Servlets, dann {@code <context-param>}. Berücksichtigt werden nur Parameter
      * {@code org.apache.tapestry.*}, damit fremde Servlets nichts beitragen.
      */
-    public static @NotNull Map<String, String> tapestryParameters(@NotNull final Project project) {
+    public static @NotNull Map<String, String> tapestryParameters(@NotNull Project project) {
         final Map<String, String> initParams = new LinkedHashMap<>();
         final Map<String, String> contextParams = new LinkedHashMap<>();
         for (final VirtualFile webXml : FilenameIndex.getVirtualFilesByName(WEB_XML, GlobalSearchScope.projectScope(project))) {
@@ -63,7 +63,7 @@ public class WebXml {
         return result;
     }
 
-    private static void collectParameters(final List<XmlTag> parameters, final Map<String, String> out) {
+    private static void collectParameters(List<XmlTag> parameters, Map<String, String> out) {
         for (final XmlTag parameter : parameters) {
             final String name = childText(parameter, TAG_PARAM_NAME);
             final String value = childText(parameter, TAG_PARAM_VALUE);
@@ -71,11 +71,11 @@ public class WebXml {
         }
     }
 
-    private static @Nullable XmlTag rootTag(final Project project, @Nullable final VirtualFile webXml) {
+    private static @Nullable XmlTag rootTag(Project project, @Nullable VirtualFile webXml) {
         return webXml != null ? SpecXml.rootTag(project, webXml) : null;
     }
 
-    private static List<XmlTag> children(@Nullable final XmlTag parent, final String localName) {
+    private static List<XmlTag> children(@Nullable XmlTag parent, String localName) {
         if (parent == null) return List.of();
         final List<XmlTag> result = new ArrayList<>();
         for (final XmlTag child : parent.getSubTags()) {
@@ -84,7 +84,7 @@ public class WebXml {
         return result;
     }
 
-    private static @Nullable String childText(final XmlTag parent, final String localName) {
+    private static @Nullable String childText(XmlTag parent, String localName) {
         for (final XmlTag child : children(parent, localName)) {
             final String text = child.getValue().getTrimmedText();
             if (!text.isEmpty()) return text;

@@ -15,7 +15,7 @@ import javax.swing.Icon;
 public class TapestryIconProvider extends IconProvider {
 
     @Override
-    public @Nullable Icon getIcon(@NotNull final PsiElement element, final int flags) {
+    public @Nullable Icon getIcon(@NotNull PsiElement element, int flags) {
         if (!(element instanceof final XmlFile file) || file.getVirtualFile() == null) return null;
         final SpecKind kind = SpecKind.byExtension(file.getVirtualFile().getExtension());
         if (kind == null || TapestryFiles.getSpecKind(file) != kind) return null;

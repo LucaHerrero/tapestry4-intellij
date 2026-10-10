@@ -3,10 +3,7 @@ package com.herreromarcos.idea.tapestry4plugin.model;
 import com.herreromarcos.idea.tapestry4plugin.TapestryConstants;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.xml.XmlAttribute;
 import com.intellij.psi.xml.XmlAttributeValue;
-import com.intellij.psi.xml.XmlTag;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.LinkedHashMap;
@@ -28,27 +25,22 @@ public class BindingPrefixes {
     }
 
     /** Präfix → {@code prefix}-Attributwert der Registrierung (dokumentierte und projekteigene). */
-    public static @NotNull Map<String, XmlAttributeValue> getDeclarations(@NotNull final Project project) {
+    public static @NotNull Map<String, XmlAttributeValue> getDeclarations(@NotNull Project project) {
         if (DumbService.isDumb(project)) return Map.of();
         final Map<String, XmlAttributeValue> result = new LinkedHashMap<>();
-        for (final XmlTag binding : HiveModules.getContributedElements(project, BINDING_FACTORIES, TAG_BINDING)) {
-            final XmlAttribute prefix = binding.getAttribute(ATTR_PREFIX);
-            if (prefix != null && prefix.getValueElement() != null && !StringUtil.isEmptyOrSpaces(prefix.getValue())) {
-                result.putIfAbsent(prefix.getValue().trim(), prefix.getValueElement());
-            }
-        }
+        HiveModules.collectAttributeValues(project, BINDING_FACTORIES, TAG_BINDING, ATTR_PREFIX, result);
         return result;
     }
 
     /** Projekteigene, nicht dokumentierte Präfixe; ohne Index (Dumb Mode) leer. */
-    public static @NotNull Set<String> getCustom(@NotNull final Project project) {
+    public static @NotNull Set<String> getCustom(@NotNull Project project) {
         final Set<String> result = new LinkedHashSet<>(getDeclarations(project).keySet());
         TapestryConstants.BINDING_PREFIXES.forEach(result::remove);
         return result;
     }
 
     /** Sind die Registrierungen bekannt (Moduldeskriptoren im Classpath), sodass unbekannte Präfixe gemeldet werden können? */
-    public static boolean isRegistryKnown(@NotNull final Project project) {
+    public static boolean isRegistryKnown(@NotNull Project project) {
         return !DumbService.isDumb(project) && !getDeclarations(project).isEmpty();
     }
 }

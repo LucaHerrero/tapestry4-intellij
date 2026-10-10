@@ -3,9 +3,6 @@ package com.herreromarcos.idea.tapestry4plugin.references;
 import com.herreromarcos.idea.tapestry4plugin.TapestryIcons;
 import com.herreromarcos.idea.tapestry4plugin.model.ComponentModel;
 import com.herreromarcos.idea.tapestry4plugin.model.ComponentParameter;
-import com.herreromarcos.idea.tapestry4plugin.model.DeclaredComponent;
-import com.herreromarcos.idea.tapestry4plugin.model.SpecXml;
-import com.herreromarcos.idea.tapestry4plugin.model.TapestryContext;
 import com.herreromarcos.idea.tapestry4plugin.model.TapestryRegistry;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
@@ -26,7 +23,7 @@ import static com.herreromarcos.idea.tapestry4plugin.TapestryConstants.*;
 /** {@code <binding name="...">} innerhalb von {@code <component>} → formaler Parameter der Komponente. */
 public class ParameterNameReference extends TapestryReferenceBase {
 
-    public ParameterNameReference(@NotNull final PsiElement element, @NotNull final TextRange range) {
+    public ParameterNameReference(@NotNull PsiElement element, @NotNull TextRange range) {
         super(element, range);
     }
 
@@ -34,10 +31,7 @@ public class ParameterNameReference extends TapestryReferenceBase {
         final XmlTag bindingTag = PsiTreeUtil.getParentOfType(getElement(), XmlTag.class);
         final XmlTag componentTag = bindingTag != null ? bindingTag.getParentTag() : null;
         if (componentTag == null || !TAG_COMPONENT.equals(componentTag.getName())) return null;
-        final TapestryContext ctx = context();
-        final String id = SpecXml.attr(componentTag, ATTR_ID);
-        final DeclaredComponent declared = id != null ? ComponentModel.findDeclaredComponent(ctx, id) : null;
-        final String type = declared != null ? ComponentModel.getEffectiveType(ctx, declared) : SpecXml.attr(componentTag, ATTR_TYPE);
+        final String type = ComponentModel.getComponentTypeOfSpecTag(componentTag);
         return type != null ? TapestryRegistry.resolveComponentType(type, getElement()) : null;
     }
 

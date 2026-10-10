@@ -24,11 +24,11 @@ import static com.herreromarcos.idea.tapestry4plugin.TapestryConstants.*;
 public class TapestryAttributeDescriptorsProvider implements XmlAttributeDescriptorsProvider {
 
     @Override
-    public XmlAttributeDescriptor @NotNull [] getAttributeDescriptors(final XmlTag tag) {
-        if (!isInTemplate(tag)) return XmlAttributeDescriptor.EMPTY;
+    public XmlAttributeDescriptor @NotNull [] getAttributeDescriptors(XmlTag tag) {
+        if (isNotInTemplate(tag)) return XmlAttributeDescriptor.EMPTY;
         final List<XmlAttributeDescriptor> result = new ArrayList<>();
         result.add(new TapestryAttributeDescriptor(TapestryConfiguration.getJwcidAttribute(tag.getContainingFile()), null));
-        if (isLocalizationSpan(tag)) {
+        if (TapestryConfiguration.isLocalizationSpan(tag)) {
             result.add(new TapestryAttributeDescriptor(ATTR_KEY, null));
             result.add(new TapestryAttributeDescriptor(ATTR_RAW, null));
         }
@@ -42,11 +42,11 @@ public class TapestryAttributeDescriptorsProvider implements XmlAttributeDescrip
     }
 
     @Override
-    public @Nullable XmlAttributeDescriptor getAttributeDescriptor(final String attributeName, final XmlTag tag) {
-        if (attributeName == null || !isInTemplate(tag)) return null;
+    public @Nullable XmlAttributeDescriptor getAttributeDescriptor(String attributeName, XmlTag tag) {
+        if (attributeName == null || isNotInTemplate(tag)) return null;
         final String jwcid = TapestryConfiguration.getJwcidAttribute(tag.getContainingFile());
         if (jwcid.equalsIgnoreCase(attributeName)) return new TapestryAttributeDescriptor(jwcid, null);
-        if (isLocalizationSpan(tag) && (ATTR_KEY.equalsIgnoreCase(attributeName) || ATTR_RAW.equalsIgnoreCase(attributeName))) {
+        if (TapestryConfiguration.isLocalizationSpan(tag) && (ATTR_KEY.equalsIgnoreCase(attributeName) || ATTR_RAW.equalsIgnoreCase(attributeName))) {
             return new TapestryAttributeDescriptor(attributeName, null);
         }
         final XmlFile spec = componentSpec(tag);
@@ -55,16 +55,11 @@ public class TapestryAttributeDescriptorsProvider implements XmlAttributeDescrip
     }
 
     /** Während der Indexierung keine Index-Zugriffe – dann ist nur jwcid bekannt. */
-    private static @Nullable XmlFile componentSpec(final XmlTag tag) {
+    private static @Nullable XmlFile componentSpec(XmlTag tag) {
         return DumbService.isDumb(tag.getProject()) ? null : ComponentModel.getComponentSpecOfTag(tag);
     }
 
-    /** {@code <span key="..." raw="true">}: Lokalisierungs-Direktive des Template-Parsers (ohne jwcid). */
-    private static boolean isLocalizationSpan(final XmlTag tag) {
-        return TAG_SPAN.equalsIgnoreCase(tag.getName()) && !TapestryConfiguration.isComponentTag(tag);
-    }
-
-    private static boolean isInTemplate(@Nullable final XmlTag tag) {
-        return tag != null && TapestryFiles.isTemplateFile(tag.getContainingFile());
+    private static boolean isNotInTemplate(@Nullable XmlTag tag) {
+        return tag == null || !TapestryFiles.isTemplateFile(tag.getContainingFile());
     }
 }

@@ -30,7 +30,7 @@ import static com.herreromarcos.idea.tapestry4plugin.references.TapestryReferenc
 class AnnotationReferenceProvider extends PsiReferenceProvider {
 
     @Override
-    public PsiReference @NotNull [] getReferencesByElement(@NotNull final PsiElement element, @NotNull final ProcessingContext context) {
+    public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement element, @NotNull ProcessingContext context) {
         if (!(element instanceof final PsiLiteralExpression literal) || !(literal.getValue() instanceof String)) {
             return PsiReference.EMPTY_ARRAY;
         }
@@ -58,26 +58,26 @@ class AnnotationReferenceProvider extends PsiReferenceProvider {
     }
 
     /** {@code "value=ognl:user.name"}: nur der Teil hinter dem '=' ist ein Binding-Ausdruck. */
-    private static PsiReference[] componentBinding(final PsiLiteralExpression literal, final String text, final int offset) {
+    private static PsiReference[] componentBinding(PsiLiteralExpression literal, String text, int offset) {
         final int separator = text.indexOf('=');
         if (separator < 0) return PsiReference.EMPTY_ARRAY;
         return BindingReferences.create(literal, text.substring(separator + 1), offset + separator + 1, defaultPrefix(literal));
     }
 
     /** In Annotationen gilt wie in Spezifikationen OGNL als Standard (bzw. das konfigurierte default-binding-prefix). */
-    private static String defaultPrefix(final PsiElement element) {
+    private static String defaultPrefix(PsiElement element) {
         final TapestryContext ctx = context(element);
         return ctx != null && ctx.spec() != null ? TapestryConfiguration.getDefaultBindingPrefix(ctx.spec()) : PREFIX_OGNL;
     }
 
     /** Pfade sind relativ zur Spezifikation, ohne Spezifikation relativ zum Template. */
-    private static @Nullable VirtualFile baseFile(final PsiElement element) {
+    private static @Nullable VirtualFile baseFile(PsiElement element) {
         final TapestryContext ctx = context(element);
         final PsiFile owner = ctx == null ? null : ctx.spec() != null ? ctx.spec() : ctx.template();
         return owner != null ? owner.getOriginalFile().getVirtualFile() : null;
     }
 
-    private static @Nullable TapestryContext context(final PsiElement element) {
+    private static @Nullable TapestryContext context(PsiElement element) {
         final PsiClass psiClass = PsiTreeUtil.getParentOfType(element, PsiClass.class);
         return psiClass != null ? TapestryModel.getContext(psiClass) : null;
     }

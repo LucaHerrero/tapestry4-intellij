@@ -17,7 +17,7 @@ import java.util.List;
 /** jwcid, Bindings, Completion und Prüfungen in HTML-Templates. */
 public class TemplateSupportTest extends TapestryTestCase {
 
-    private void configureTemplate(final String body) {
+    private void configureTemplate(String body) {
         configure("Home.html", "<html><body>" + body + "</body></html>");
     }
 

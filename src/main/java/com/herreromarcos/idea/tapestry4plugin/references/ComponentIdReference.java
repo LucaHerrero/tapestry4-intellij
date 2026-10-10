@@ -21,7 +21,7 @@ import java.util.List;
 public class ComponentIdReference extends TapestryReferenceBase {
     private final boolean offerTypes;
 
-    public ComponentIdReference(@NotNull final PsiElement element, @NotNull final TextRange range, final boolean offerTypes) {
+    public ComponentIdReference(@NotNull PsiElement element, @NotNull TextRange range, boolean offerTypes) {
         super(element, range);
         this.offerTypes = offerTypes;
     }

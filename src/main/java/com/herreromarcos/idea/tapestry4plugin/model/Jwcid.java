@@ -22,7 +22,7 @@ import org.jetbrains.annotations.Nullable;
 public record Jwcid(@Nullable String id, @Nullable String type, boolean special,
                     @NotNull TextRange idRange, @NotNull TextRange typeRange) {
 
-    public static @NotNull Jwcid parse(@NotNull final String text) {
+    public static @NotNull Jwcid parse(@NotNull String text) {
         final String trimmed = text.trim();
         final int start = trimmed.isEmpty() ? 0 : text.indexOf(trimmed);
         final int end = start + trimmed.length();

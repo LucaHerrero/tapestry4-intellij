@@ -3,6 +3,7 @@ package com.herreromarcos.idea.tapestry4plugin.model;
 import com.herreromarcos.idea.tapestry4plugin.TapestryConstants;
 import org.jetbrains.annotations.Nullable;
 
+/** Art einer Tapestry-Spezifikation mit Wurzel-Tag und Dateiendung. */
 public enum SpecKind {
     PAGE(TapestryConstants.ROOT_PAGE, TapestryConstants.EXT_PAGE),
     COMPONENT(TapestryConstants.ROOT_COMPONENT, TapestryConstants.EXT_COMPONENT),
@@ -12,7 +13,7 @@ public enum SpecKind {
     private final String rootTag;
     private final String extension;
 
-    SpecKind(final String rootTag, final String extension) {
+    SpecKind(String rootTag, String extension) {
         this.rootTag = rootTag;
         this.extension = extension;
     }
@@ -21,18 +22,14 @@ public enum SpecKind {
         return rootTag;
     }
 
-    public String getExtension() {
-        return extension;
-    }
-
-    public static @Nullable SpecKind byRootTag(@Nullable final String name) {
+    public static @Nullable SpecKind byRootTag(@Nullable String name) {
         for (final SpecKind kind : values()) {
             if (kind.rootTag.equals(name)) return kind;
         }
         return null;
     }
 
-    public static @Nullable SpecKind byExtension(@Nullable final String ext) {
+    public static @Nullable SpecKind byExtension(@Nullable String ext) {
         for (final SpecKind kind : values()) {
             if (kind.extension.equalsIgnoreCase(ext)) return kind;
         }

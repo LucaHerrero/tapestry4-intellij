@@ -1,6 +1,6 @@
 <idea-plugin>
     <id>com.herreromarcos.idea.tapestry4plugin</id>
-    <name>Tapestry 4 Support</name>
+    <name>Tapestry 4</name>
     <vendor>Luca Herrero Marcos</vendor>
 
     <description><![CDATA[
@@ -55,8 +55,10 @@
 
     <actions>
         <group id="Tapestry4.NewGroup">
-            <action id="Tapestry4.NewPage" class="com.herreromarcos.idea.tapestry4plugin.actions.NewTapestryElementAction$Page"/>
-            <action id="Tapestry4.NewComponent" class="com.herreromarcos.idea.tapestry4plugin.actions.NewTapestryElementAction$Component"/>
+            <action id="Tapestry4.NewPage" class="com.herreromarcos.idea.tapestry4plugin.actions.NewTapestryElementAction$Page"
+                    text="Tapestry 4 Page" description="Create a Tapestry 4 page (.page + .html)" icon="/icons/page.svg"/>
+            <action id="Tapestry4.NewComponent" class="com.herreromarcos.idea.tapestry4plugin.actions.NewTapestryElementAction$Component"
+                    text="Tapestry 4 Component" description="Create a Tapestry 4 component (.jwc + .html)" icon="/icons/component.svg"/>
             <add-to-group group-id="NewGroup" anchor="last"/>
         </group>
     </actions>

@@ -20,27 +20,23 @@ import com.intellij.psi.PsiFileFactory;
 import com.intellij.psi.PsiNameHelper;
 import org.jetbrains.annotations.NotNull;
 
-import javax.swing.Icon;
-
-/** Legt Spezifikation (.page/.jwc) und HTML-Template für eine neue Seite bzw. Komponente an. */
+/** Legt Spezifikation (.page/.jwc) und HTML-Template für eine neue Seite bzw. Komponente an; Text und Icon stehen in plugin.xml. */
 public abstract class NewTapestryElementAction extends AnAction {
     private final boolean page;
 
-    protected NewTapestryElementAction(final boolean page, final Icon icon) {
-        super(page ? "Tapestry 4 Page" : "Tapestry 4 Component",
-                page ? "Create a Tapestry 4 page (.page + .html)" : "Create a Tapestry 4 component (.jwc + .html)", icon);
+    protected NewTapestryElementAction(boolean page) {
         this.page = page;
     }
 
     public static class Page extends NewTapestryElementAction {
         public Page() {
-            super(true, TapestryIcons.PAGE);
+            super(true);
         }
     }
 
     public static class Component extends NewTapestryElementAction {
         public Component() {
-            super(false, TapestryIcons.COMPONENT);
+            super(false);
         }
     }
 
@@ -50,13 +46,13 @@ public abstract class NewTapestryElementAction extends AnAction {
     }
 
     @Override
-    public void update(@NotNull final AnActionEvent e) {
+    public void update(@NotNull AnActionEvent e) {
         final IdeView view = e.getData(LangDataKeys.IDE_VIEW);
         e.getPresentation().setEnabledAndVisible(e.getProject() != null && view != null && view.getDirectories().length > 0);
     }
 
     @Override
-    public void actionPerformed(@NotNull final AnActionEvent e) {
+    public void actionPerformed(@NotNull AnActionEvent e) {
         final Project project = e.getProject();
         final IdeView view = e.getData(LangDataKeys.IDE_VIEW);
         if (project == null || view == null) return;
@@ -64,7 +60,8 @@ public abstract class NewTapestryElementAction extends AnAction {
         if (directory == null) return;
 
         final String kind = page ? "page" : "component";
-        final String title = "New Tapestry 4 %s".formatted(StringUtil.capitalize(kind));
+        final String displayKind = StringUtil.capitalize(kind);
+        final String title = "New Tapestry 4 %s".formatted(displayKind);
         final String input = Messages.showInputDialog(project, "Name of the new %s:".formatted(kind), title,
                 page ? TapestryIcons.PAGE : TapestryIcons.COMPONENT);
         if (StringUtil.isEmptyOrSpaces(input)) return;
@@ -73,7 +70,7 @@ public abstract class NewTapestryElementAction extends AnAction {
             Messages.showErrorDialog(project, "'%s' is not a valid name".formatted(name), title);
             return;
         }
-        final String className = StringUtil.trim(Messages.showInputDialog(project, "Fully qualified class (optional):", "Tapestry %s Class".formatted(kind), null));
+        final String className = StringUtil.trim(Messages.showInputDialog(project, "Fully qualified class (optional):", "Tapestry %s Class".formatted(displayKind), null));
         if (!StringUtil.isEmpty(className) && !PsiNameHelper.getInstance(project).isQualifiedName(className)) {
             Messages.showErrorDialog(project, "'%s' is not a valid class name".formatted(className), title);
             return;
@@ -88,7 +85,7 @@ public abstract class NewTapestryElementAction extends AnAction {
         final String specText = specification(className);
         final String templateText = template(name);
 
-        final PsiFile created = WriteCommandAction.writeCommandAction(project).withName("Create Tapestry %s".formatted(kind)).compute(() -> {
+        final PsiFile created = WriteCommandAction.writeCommandAction(project).withName("Create Tapestry %s".formatted(displayKind)).compute(() -> {
             final PsiFileFactory factory = PsiFileFactory.getInstance(project);
             final PsiFile spec = (PsiFile) directory.add(factory.createFileFromText(specName, XmlFileType.INSTANCE, specText));
             directory.add(factory.createFileFromText(templateName, HtmlFileType.INSTANCE, templateText));
@@ -101,7 +98,7 @@ public abstract class NewTapestryElementAction extends AnAction {
         if (created.getVirtualFile() != null) FileEditorManager.getInstance(project).openFile(created.getVirtualFile(), true);
     }
 
-    private String specification(final String className) {
+    private String specification(String className) {
         final String root = page ? TapestryConstants.ROOT_PAGE : TapestryConstants.ROOT_COMPONENT;
         final String classAttr = StringUtil.isEmptyOrSpaces(className) ? "" : " class=\"%s\"".formatted(className.trim());
         final String extra = page ? "" : " allow-body=\"yes\" allow-informal-parameters=\"yes\"";

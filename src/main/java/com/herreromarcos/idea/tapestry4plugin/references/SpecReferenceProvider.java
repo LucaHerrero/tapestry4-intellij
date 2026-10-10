@@ -31,7 +31,7 @@ class SpecReferenceProvider extends PsiReferenceProvider {
     private static final Set<String> SPEC_PATH_TAGS = Set.of(TAG_PAGE, TAG_COMPONENT_TYPE, TAG_LIBRARY);
 
     @Override
-    public PsiReference @NotNull [] getReferencesByElement(@NotNull final PsiElement element, @NotNull final ProcessingContext context) {
+    public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement element, @NotNull ProcessingContext context) {
         if (!(element instanceof final XmlAttributeValue value) || !(value.getParent() instanceof final XmlAttribute attribute)) {
             return PsiReference.EMPTY_ARRAY;
         }
@@ -71,8 +71,8 @@ class SpecReferenceProvider extends PsiReferenceProvider {
     }
 
     /** {@code <binding name="page" value="literal:Home"/>} an PageLink → Seite, sonst Binding-Ausdruck. */
-    private static PsiReference[] bindingValueReferences(final XmlAttributeValue value, final XmlTag bindingTag,
-                                                         final String text, final int offset) {
+    private static PsiReference[] bindingValueReferences(XmlAttributeValue value, XmlTag bindingTag,
+                                                         String text, int offset) {
         final String defaultPrefix = TapestryConfiguration.getDefaultBindingPrefix(value.getContainingFile());
         final XmlTag component = bindingTag.getParentTag();
         final BindingExpression binding = BindingExpression.parse(text, value);
@@ -87,7 +87,7 @@ class SpecReferenceProvider extends PsiReferenceProvider {
      * {@code <bean class="...">}: nur der Klassenname vor dem ersten Komma ("lightweight initialization",
      * z.B. {@code StringValidator,required,minimumLength=10}); einfache Namen über bean-class-packages.
      */
-    private static PsiReference[] beanClassReferences(final XmlAttributeValue value, final String text, final int offset) {
+    private static PsiReference[] beanClassReferences(XmlAttributeValue value, String text, int offset) {
         final String className = StringUtils.substringBefore(text, ",").trim();
         if (className.isEmpty()) return PsiReference.EMPTY_ARRAY;
         final int start = offset + text.indexOf(className);
@@ -95,15 +95,15 @@ class SpecReferenceProvider extends PsiReferenceProvider {
         return classReferences(value, className, start);
     }
 
-    private static PsiReference[] classReferences(final XmlAttributeValue value, final String className, final int offset) {
+    private static PsiReference[] classReferences(XmlAttributeValue value, String className, int offset) {
         final JavaClassReferenceProvider provider = new JavaClassReferenceProvider();
         provider.setSoft(false);
         return provider.getReferencesByString(className, value, offset);
     }
 
     /** {@code <inject type="page">} → Seite, {@code type="script"} → Skriptdatei, {@code type="state|state-flag"} → State Object. */
-    private static PsiReference[] injectReferences(final XmlAttributeValue value, final XmlTag tag, final String text,
-                                                   final int offset, final TextRange valueRange) {
+    private static PsiReference[] injectReferences(XmlAttributeValue value, XmlTag tag, String text,
+                                                   int offset, TextRange valueRange) {
         final String type = tag.getAttributeValue(ATTR_TYPE);
         if ("page".equals(type)) return single(new PageReference(value, valueRange));
         if ("script".equals(type)) return SpecPathReferences.create(value, text, offset, true);

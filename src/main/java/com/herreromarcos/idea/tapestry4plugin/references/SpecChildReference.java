@@ -33,7 +33,7 @@ public class SpecChildReference extends TapestryReferenceBase {
         private final List<String> tags;
         private final String annotation;
 
-        Kind(final String label, final List<String> tags, final String annotation) {
+        Kind(String label, List<String> tags, String annotation) {
             this.label = label;
             this.tags = tags;
             this.annotation = annotation;
@@ -42,7 +42,7 @@ public class SpecChildReference extends TapestryReferenceBase {
 
     private final Kind kind;
 
-    public SpecChildReference(@NotNull final PsiElement element, @NotNull final TextRange range, @NotNull final Kind kind) {
+    public SpecChildReference(@NotNull PsiElement element, @NotNull TextRange range, @NotNull Kind kind) {
         super(element, range);
         this.kind = kind;
     }

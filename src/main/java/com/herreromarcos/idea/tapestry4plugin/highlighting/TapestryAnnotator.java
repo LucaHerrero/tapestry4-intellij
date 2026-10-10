@@ -27,7 +27,7 @@ import org.jetbrains.annotations.NotNull;
 public class TapestryAnnotator implements Annotator {
 
     @Override
-    public void annotate(@NotNull final PsiElement element, @NotNull final AnnotationHolder holder) {
+    public void annotate(@NotNull PsiElement element, @NotNull AnnotationHolder holder) {
         if (element instanceof final XmlTag tag) {
             if (TapestryFiles.isTemplateFile(tag.getContainingFile())) TemplateChecks.checkTag(tag, holder);
             return;
@@ -51,7 +51,7 @@ public class TapestryAnnotator implements Annotator {
         reportUnresolvedReferences(value, holder);
     }
 
-    private static void reportUnresolvedReferences(final PsiElement value, final AnnotationHolder holder) {
+    private static void reportUnresolvedReferences(PsiElement value, AnnotationHolder holder) {
         final int start = value.getTextRange().getStartOffset();
         for (final PsiReference reference : value.getReferences()) {
             if (!(reference instanceof final TapestryReference tapestryReference)) continue;
@@ -67,12 +67,12 @@ public class TapestryAnnotator implements Annotator {
         }
     }
 
-    private static boolean isResolved(final PsiReference reference) {
+    private static boolean isResolved(PsiReference reference) {
         if (reference instanceof final PsiPolyVariantReference poly) return poly.multiResolve(false).length > 0;
         return reference.resolve() != null;
     }
 
-    private static void highlightBindingPrefix(final XmlAttributeValue value, final AnnotationHolder holder) {
+    private static void highlightBindingPrefix(XmlAttributeValue value, AnnotationHolder holder) {
         final BindingExpression binding = BindingExpression.parse(ElementManipulators.getValueText(value), value);
         if (binding.registeredPrefix() == null) return;
         final int start = value.getTextRange().getStartOffset() + ElementManipulators.getValueTextRange(value).getStartOffset();

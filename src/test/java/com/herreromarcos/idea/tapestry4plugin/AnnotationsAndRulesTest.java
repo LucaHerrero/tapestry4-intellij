@@ -14,7 +14,7 @@ public class AnnotationsAndRulesTest extends TapestryTestCase {
     private static final String A = "org.apache.tapestry.annotations.";
 
     /** Ersetzt die Klasse Home aus dem Basis-Setup um ein zusätzliches Element; {@code <caret>} markiert die Position. */
-    private void configureHomeClass(final String member) {
+    private void configureHomeClass(String member) {
         final String text = """
                 package com.example;
                 public abstract class Home {

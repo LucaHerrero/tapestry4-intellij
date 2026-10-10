@@ -15,7 +15,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class BindingPrefixReference extends TapestryReferenceBase {
 
-    public BindingPrefixReference(@NotNull final PsiElement element, @NotNull final TextRange range) {
+    public BindingPrefixReference(@NotNull PsiElement element, @NotNull TextRange range) {
         super(element, range);
     }
 

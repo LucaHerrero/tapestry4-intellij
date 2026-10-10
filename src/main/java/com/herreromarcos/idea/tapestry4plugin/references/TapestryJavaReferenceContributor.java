@@ -9,7 +9,7 @@ import org.jetbrains.annotations.NotNull;
 public class TapestryJavaReferenceContributor extends PsiReferenceContributor {
 
     @Override
-    public void registerReferenceProviders(@NotNull final PsiReferenceRegistrar registrar) {
+    public void registerReferenceProviders(@NotNull PsiReferenceRegistrar registrar) {
         // Alle Literale in Annotationen – insideAnnotationParam(...) träfe nur den Standardparameter "value",
         // gebraucht werden auch type/copyOf/bindings. Der Provider filtert selbst auf Tapestry-Annotationen.
         registrar.registerReferenceProvider(PsiJavaPatterns.literalExpression().inside(PsiJavaPatterns.psiAnnotation()),

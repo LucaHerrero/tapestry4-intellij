@@ -1,10 +1,7 @@
 package com.herreromarcos.idea.tapestry4plugin.model;
 
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.xml.XmlAttribute;
 import com.intellij.psi.xml.XmlAttributeValue;
-import com.intellij.psi.xml.XmlTag;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.LinkedHashMap;
@@ -24,19 +21,10 @@ public class ApplicationStateObjects {
     }
 
     /** Name → {@code name}-Attributwert der {@code <state-object>}-Deklaration. */
-    public static @NotNull Map<String, XmlAttributeValue> getAll(@NotNull final Project project) {
+    public static @NotNull Map<String, XmlAttributeValue> getAll(@NotNull Project project) {
         final Map<String, XmlAttributeValue> result = new LinkedHashMap<>();
-        collect(project, STATE_APPLICATION_OBJECTS, result);
-        collect(project, STATE_FACTORY_OBJECTS, result);
+        HiveModules.collectAttributeValues(project, STATE_APPLICATION_OBJECTS, TAG_STATE_OBJECT, ATTR_NAME, result);
+        HiveModules.collectAttributeValues(project, STATE_FACTORY_OBJECTS, TAG_STATE_OBJECT, ATTR_NAME, result);
         return result;
-    }
-
-    private static void collect(final Project project, final String configurationId, final Map<String, XmlAttributeValue> out) {
-        for (final XmlTag stateObject : HiveModules.getContributedElements(project, configurationId, TAG_STATE_OBJECT)) {
-            final XmlAttribute name = stateObject.getAttribute(ATTR_NAME);
-            if (name != null && name.getValueElement() != null && !StringUtil.isEmptyOrSpaces(name.getValue())) {
-                out.putIfAbsent(name.getValue().trim(), name.getValueElement());
-            }
-        }
     }
 }

@@ -17,6 +17,13 @@ import static com.herreromarcos.idea.tapestry4plugin.TapestryConstants.WEB_INF;
 
 /** Pfadauflösung: specification-path, Web-Root, Classpath und Ähnlichkeit von Dateipfaden. */
 public class TapestryPaths {
+    /**
+     * Optionales Locale-Suffix im Dateinamen ({@code _de}, {@code _de_AT}, {@code _en_US_POSIX}) – nicht aber
+     * {@code _Admin}, das wäre ein anderer Name.
+     */
+    public static final String LOCALE_SUFFIX = "(_[a-z]{2,3}(_([A-Z]{2}|[0-9]{3})(_\\w+)?)?)";
+    private static final Pattern LOCALIZED_NAME = Pattern.compile("(.+?)" + LOCALE_SUFFIX);
+
     private TapestryPaths() {
     }
 
@@ -24,8 +31,8 @@ public class TapestryPaths {
      * Löst einen specification-path auf: relativ zur Datei, oder absolut ("/...") gegen Web-Root und Classpath.
      * Präfixe "classpath:" und "context:" werden ignoriert.
      */
-    public static @Nullable VirtualFile resolve(@NotNull final Project project, @NotNull final String specificationPath,
-                                                @NotNull final VirtualFile relativeTo) {
+    public static @Nullable VirtualFile resolve(@NotNull Project project, @NotNull String specificationPath,
+                                                @NotNull VirtualFile relativeTo) {
         final String path = StringUtils.removeStart(StringUtils.removeStart(specificationPath.trim(), "classpath:"), "context:");
         if (!path.startsWith("/")) {
             final VirtualFile parent = relativeTo.getParent();
@@ -45,7 +52,7 @@ public class TapestryPaths {
     }
 
     /** Quell- und Klassen-Wurzeln aller Module und Bibliotheken (ohne JDK). */
-    public static @NotNull List<VirtualFile> classpathRoots(@NotNull final Project project) {
+    public static @NotNull List<VirtualFile> classpathRoots(@NotNull Project project) {
         final List<VirtualFile> roots = new ArrayList<>();
         final OrderEnumerator enumerator = OrderEnumerator.orderEntries(project).withoutSdk();
         Collections.addAll(roots, enumerator.getAllSourceRoots());
@@ -54,7 +61,7 @@ public class TapestryPaths {
     }
 
     /** Das Web-Root (Verzeichnis, das WEB-INF enthält) für eine Datei. */
-    public static @Nullable VirtualFile webRoot(@NotNull final VirtualFile file) {
+    public static @Nullable VirtualFile webRoot(@NotNull VirtualFile file) {
         for (VirtualFile dir = file.isDirectory() ? file : file.getParent(); dir != null; dir = dir.getParent()) {
             if (WEB_INF.equals(dir.getName())) return dir.getParent();
             final VirtualFile webInf = dir.findChild(WEB_INF);
@@ -64,7 +71,7 @@ public class TapestryPaths {
     }
 
     /** Pfad relativ zu WEB-INF ohne Endung, z.B. "admin/Users" – oder {@code null}, wenn nicht unter WEB-INF. */
-    static @Nullable String pathBelowWebInf(@NotNull final VirtualFile file) {
+    static @Nullable String pathBelowWebInf(@NotNull VirtualFile file) {
         for (VirtualFile dir = file.getParent(); dir != null; dir = dir.getParent()) {
             if (WEB_INF.equals(dir.getName())) {
                 final String relative = VfsUtilCore.getRelativePath(file, dir, '/');
@@ -78,7 +85,7 @@ public class TapestryPaths {
      * Logischer Seitenname mit Ordnern, z.B. {@code admin/EditUser}: relativ zu WEB-INF (Spezifikationen)
      * bzw. zum Web-Root (Templates), ohne Endung; {@code null} außerhalb einer Web-Anwendung.
      */
-    static @Nullable String logicalPagePath(@NotNull final VirtualFile file) {
+    static @Nullable String logicalPagePath(@NotNull VirtualFile file) {
         final String belowWebInf = pathBelowWebInf(file);
         if (belowWebInf != null) return belowWebInf;
         final VirtualFile webRoot = webRoot(file);
@@ -86,32 +93,25 @@ public class TapestryPaths {
         return relative != null ? StringUtil.trimEnd(relative, "." + file.getExtension()) : null;
     }
 
-    /**
-     * Optionales Locale-Suffix im Dateinamen ({@code _de}, {@code _de_AT}, {@code _en_US_POSIX}) – nicht aber
-     * {@code _Admin}, das wäre ein anderer Name.
-     */
-    public static final String LOCALE_SUFFIX = "(_[a-z]{2,3}(_([A-Z]{2}|[0-9]{3})(_\\w+)?)?)";
-    private static final Pattern LOCALIZED_NAME = Pattern.compile("(.+?)" + LOCALE_SUFFIX);
-
     /** {@code Home_de} → {@code Home}; Namen ohne Locale-Suffix bleiben unverändert. */
-    public static @NotNull String stripLocale(@NotNull final String baseName) {
+    public static @NotNull String stripLocale(@NotNull String baseName) {
         final Matcher matcher = LOCALIZED_NAME.matcher(baseName);
         return matcher.matches() ? matcher.group(1) : baseName;
     }
 
     /** Kandidat mit dem zur Referenz ähnlichsten Pfad. */
-    static @Nullable VirtualFile closest(@NotNull final VirtualFile reference, @NotNull final Collection<VirtualFile> candidates) {
+    static @Nullable VirtualFile closest(@NotNull VirtualFile reference, @NotNull Collection<VirtualFile> candidates) {
         return candidates.stream().max(Comparator.comparingInt(c -> similarity(reference, c))).orElse(null);
     }
 
     /** Alle Kandidaten mit maximaler Pfadähnlichkeit zur Referenz. */
-    static @NotNull List<VirtualFile> allClosest(@NotNull final VirtualFile reference, @NotNull final Collection<VirtualFile> candidates) {
+    static @NotNull List<VirtualFile> allClosest(@NotNull VirtualFile reference, @NotNull Collection<VirtualFile> candidates) {
         final int best = candidates.stream().mapToInt(c -> similarity(reference, c)).max().orElse(0);
         return candidates.stream().filter(c -> similarity(reference, c) == best).toList();
     }
 
     /** Ähnlichkeit zweier Dateipfade; gleiches Verzeichnis gewinnt, WEB-INF wird ignoriert. */
-    static int similarity(@NotNull final VirtualFile a, @NotNull final VirtualFile b) {
+    static int similarity(@NotNull VirtualFile a, @NotNull VirtualFile b) {
         if (Objects.equals(a.getParent(), b.getParent())) return 100_000;
         final List<String> pa = dirSegments(a);
         final List<String> pb = dirSegments(b);
@@ -127,7 +127,7 @@ public class TapestryPaths {
         return suffix * 1000 + prefix;
     }
 
-    private static List<String> dirSegments(final VirtualFile file) {
+    private static List<String> dirSegments(VirtualFile file) {
         final LinkedList<String> segments = new LinkedList<>();
         for (VirtualFile dir = file.getParent(); dir != null; dir = dir.getParent()) {
             if (!WEB_INF.equals(dir.getName())) segments.addFirst(dir.getName());

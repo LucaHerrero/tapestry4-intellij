@@ -33,7 +33,7 @@ class TemplateChecks {
     }
 
     /** Prüfungen eines Komponenten-Tags; andere Tags werden ignoriert. */
-    static void checkTag(final XmlTag tag, final AnnotationHolder holder) {
+    static void checkTag(XmlTag tag, AnnotationHolder holder) {
         final XmlAttributeValue jwcidValue = TapestryConfiguration.findJwcidValueElement(tag);
         if (jwcidValue == null) return;
         final Jwcid jwcid = Jwcid.parse(jwcidValue.getValue());
@@ -48,7 +48,7 @@ class TemplateChecks {
     }
 
     /** Wert des jwcid-Attributs: nicht leer, gültige und im Template eindeutige id. */
-    static void checkJwcid(final XmlAttributeValue value, final AnnotationHolder holder) {
+    static void checkJwcid(XmlAttributeValue value, AnnotationHolder holder) {
         if (value.getValue().isBlank()) {
             holder.newAnnotation(HighlightSeverity.ERROR, "Empty jwcid").create();
             return;
@@ -62,7 +62,7 @@ class TemplateChecks {
     }
 
     /** Wie oft kommt jede Komponenten-id ("foo", "foo@Insert") im Template vor? */
-    private static Map<String, Integer> idCounts(final XmlFile file) {
+    private static Map<String, Integer> idCounts(XmlFile file) {
         return CachedValuesManager.getCachedValue(file, () -> {
             final Map<String, Integer> counts = new HashMap<>();
             for (final XmlTag tag : PsiTreeUtil.findChildrenOfType(file, XmlTag.class)) {
@@ -78,7 +78,7 @@ class TemplateChecks {
      * Laufzeitfehler laut User's Guide ("Templates"): Komponenten innerhalb eines {@code $remove$}-Blocks und im
      * Body einer Komponente, die ihren Body verwirft ({@code allow-body="no"}, z.B. Insert).
      */
-    private static void checkComponentPlacement(final XmlTag tag, final XmlAttributeValue jwcidValue, final AnnotationHolder holder) {
+    private static void checkComponentPlacement(XmlTag tag, XmlAttributeValue jwcidValue, AnnotationHolder holder) {
         boolean nearestComponentChecked = false;
         for (XmlTag ancestor = tag.getParentTag(); ancestor != null; ancestor = ancestor.getParentTag()) {
             final String value = TapestryConfiguration.findJwcidValue(ancestor);
@@ -100,8 +100,8 @@ class TemplateChecks {
     }
 
     /** Pflichtparameter müssen im Template oder – bei deklarierten Komponenten – in der Spezifikation gebunden sein. */
-    private static void checkRequiredParameters(final XmlTag tag, final XmlFile spec, final String type, final Set<String> specBound,
-                                                final XmlAttributeValue jwcidValue, final AnnotationHolder holder) {
+    private static void checkRequiredParameters(XmlTag tag, XmlFile spec, String type, Set<String> specBound,
+                                                XmlAttributeValue jwcidValue, AnnotationHolder holder) {
         final Set<String> bound = new HashSet<>(specBound);
         for (final XmlAttribute attribute : tag.getAttributes()) {
             bound.add(ComponentModel.normalize(attribute.getName()));
@@ -115,8 +115,8 @@ class TemplateChecks {
     }
 
     /** Veraltete Komponente sowie die Regeln aus {@link ComponentUsageChecks#checkParameterUsage} für jedes Attribut. */
-    private static void checkTemplateParameters(final XmlTag tag, final XmlFile spec, final String type, final Set<String> specBound,
-                                                final XmlAttributeValue jwcidValue, final AnnotationHolder holder) {
+    private static void checkTemplateParameters(XmlTag tag, XmlFile spec, String type, Set<String> specBound,
+                                                XmlAttributeValue jwcidValue, AnnotationHolder holder) {
         ComponentUsageChecks.checkDeprecatedComponent(holder, spec, type, jwcidValue);
         for (final XmlAttribute attribute : tag.getAttributes()) {
             if (attribute.getValueElement() == jwcidValue || attribute.getNameElement() == null) continue;
@@ -126,7 +126,7 @@ class TemplateChecks {
     }
 
     /** Bei {@code jwcid="foo"} die in Spezifikation bzw. {@code @Component} gebundenen Parameter von foo. */
-    private static Set<String> specBoundParameters(final XmlTag tag, final Jwcid jwcid) {
+    private static Set<String> specBoundParameters(XmlTag tag, Jwcid jwcid) {
         if (!jwcid.isDeclaredReference() || jwcid.id() == null) return Set.of();
         final TapestryContext ctx = TapestryModel.getContext(tag.getContainingFile());
         final DeclaredComponent declared = ComponentModel.findDeclaredComponent(ctx, jwcid.id());

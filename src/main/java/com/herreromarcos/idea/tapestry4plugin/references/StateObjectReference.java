@@ -20,7 +20,7 @@ import java.util.Map;
  */
 public class StateObjectReference extends TapestryReferenceBase {
 
-    public StateObjectReference(@NotNull final PsiElement element, @NotNull final TextRange range) {
+    public StateObjectReference(@NotNull PsiElement element, @NotNull TextRange range) {
         super(element, range);
     }
 
@@ -41,7 +41,7 @@ public class StateObjectReference extends TapestryReferenceBase {
                 .toArray();
     }
 
-    private static String scope(final XmlAttributeValue name) {
+    private static String scope(XmlAttributeValue name) {
         final XmlTag stateObject = PsiTreeUtil.getParentOfType(name, XmlTag.class);
         final String scope = stateObject != null ? stateObject.getAttributeValue("scope") : null;
         return scope != null ? scope : "";

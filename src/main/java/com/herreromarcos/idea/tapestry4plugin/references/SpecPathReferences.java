@@ -23,19 +23,19 @@ class SpecPathReferences {
     private static final String CONTEXT = "context:";
     private static final String CLASSPATH = "classpath:";
 
-    private SpecPathReferences() {
-    }
-
     /** Unbekannte Präfixe sind das Schema einer URL ("http:", "https:" …) und werden unverändert durchgereicht. */
     private static final Pattern URL_SCHEME = Pattern.compile("^[A-Za-z][A-Za-z0-9+.-]*:");
 
-    static PsiReference @NotNull [] create(@NotNull final PsiElement value, @NotNull final String text, final int offset, final boolean soft) {
+    private SpecPathReferences() {
+    }
+
+    static PsiReference @NotNull [] create(@NotNull PsiElement value, @NotNull String text, int offset, boolean soft) {
         return create(value, text, offset, soft, null);
     }
 
     /** @param base Datei, relativ zu der aufgelöst wird (Spezifikation/Template); {@code null} = die enthaltende Datei */
-    static PsiReference @NotNull [] create(@NotNull final PsiElement value, @NotNull final String text, final int offset, final boolean soft,
-                                           @Nullable final VirtualFile base) {
+    static PsiReference @NotNull [] create(@NotNull PsiElement value, @NotNull String text, int offset, boolean soft,
+                                           @Nullable VirtualFile base) {
         final String mode = Stream.of(CONTEXT, CLASSPATH).filter(text::startsWith).findFirst().orElse(null);
         final String path = StringUtils.removeStart(text, mode);
         if (mode == null && URL_SCHEME.matcher(path).find() || path.contains("${")) return PsiReference.EMPTY_ARRAY;
@@ -47,8 +47,8 @@ class SpecPathReferences {
         private final boolean soft;
         private final @Nullable VirtualFile base;
 
-        PathReferenceSet(final String text, final PsiElement element, final int offset, @Nullable final String mode,
-                         final boolean soft, @Nullable final VirtualFile base) {
+        PathReferenceSet(String text, PsiElement element, int offset, @Nullable String mode,
+                         boolean soft, @Nullable VirtualFile base) {
             super(text, element, offset, null, true);
             this.mode = mode;
             this.soft = soft;
@@ -79,7 +79,7 @@ class SpecPathReferences {
          * {@code context:} immer ab Web-Root; {@code classpath:} relativ zur Spezifikation, absolut ab Classpath;
          * ohne Präfix relativ zur Spezifikation – bei Spezifikationen in der Web-Anwendung zusätzlich ab Web-Root.
          */
-        private List<VirtualFile> contextDirectories(final PsiFile file, final VirtualFile vf) {
+        private List<VirtualFile> contextDirectories(PsiFile file, VirtualFile vf) {
             final List<VirtualFile> dirs = new ArrayList<>();
             final VirtualFile webRoot = TapestryPaths.webRoot(vf);
             final boolean absolute = isAbsolutePathReference();

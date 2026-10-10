@@ -25,8 +25,8 @@ import java.util.List;
 public class TapestrySpecLineMarkerProvider extends RelatedItemLineMarkerProvider {
 
     @Override
-    protected void collectNavigationMarkers(@NotNull final PsiElement element,
-                                            @NotNull final Collection<? super RelatedItemLineMarkerInfo<?>> result) {
+    protected void collectNavigationMarkers(@NotNull PsiElement element,
+                                            @NotNull Collection<? super RelatedItemLineMarkerInfo<?>> result) {
         if (!(element instanceof final XmlToken token) || token.getTokenType() != XmlTokenType.XML_NAME) return;
         if (!(token.getParent() instanceof final XmlTag tag) || tag.getFirstChild() == null) return;
         // nur das Namens-Token des öffnenden Tags

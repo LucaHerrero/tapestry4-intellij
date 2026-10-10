@@ -1,16 +1,14 @@
 package com.herreromarcos.idea.tapestry4plugin.model;
 
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.roots.ProjectRootModificationTracker;
 import com.intellij.openapi.util.Key;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.search.FilenameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
-import com.intellij.psi.util.PsiModificationTracker;
+import com.intellij.psi.xml.XmlAttribute;
+import com.intellij.psi.xml.XmlAttributeValue;
 import com.intellij.psi.xml.XmlTag;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -38,8 +36,8 @@ public class HiveModules {
     }
 
     /** Die Kind-Elemente aller Beiträge zur Configuration (voll qualifizierte ID), in Fundreihenfolge. */
-    public static @NotNull List<XmlTag> getContributedElements(@NotNull final Project project, @NotNull final String configurationId,
-                                                               @NotNull final String elementName) {
+    public static @NotNull List<XmlTag> getContributedElements(@NotNull Project project, @NotNull String configurationId,
+                                                               @NotNull String elementName) {
         final List<XmlTag> result = new ArrayList<>();
         for (final XmlTag contribution : getContributions(project).getOrDefault(configurationId, List.of())) {
             result.addAll(List.of(contribution.findSubTags(elementName)));
@@ -47,13 +45,25 @@ public class HiveModules {
         return result;
     }
 
-    private static Map<String, List<XmlTag>> getContributions(final Project project) {
-        return CachedValuesManager.getManager(project).getCachedValue(project, CONTRIBUTIONS_KEY, () ->
-                CachedValueProvider.Result.create(compute(project),
-                        PsiModificationTracker.MODIFICATION_COUNT, ProjectRootModificationTracker.getInstance(project)), false);
+    /**
+     * Sammelt aus den beigesteuerten Elementen den (getrimmten) Wert eines Attributs → dessen Wert-Element; je Wert
+     * gewinnt das erste Vorkommen, auch gegenüber Einträgen, die schon in {@code out} stehen.
+     */
+    static void collectAttributeValues(@NotNull Project project, @NotNull String configurationId,
+                                       @NotNull String elementName, @NotNull String attributeName,
+                                       @NotNull Map<String, XmlAttributeValue> out) {
+        for (final XmlTag element : getContributedElements(project, configurationId, elementName)) {
+            final XmlAttribute attribute = element.getAttribute(attributeName);
+            final XmlAttributeValue value = attribute != null ? attribute.getValueElement() : null;
+            if (value != null && !StringUtil.isEmptyOrSpaces(value.getValue())) out.putIfAbsent(value.getValue().trim(), value);
+        }
     }
 
-    private static Map<String, List<XmlTag>> compute(final Project project) {
+    private static Map<String, List<XmlTag>> getContributions(Project project) {
+        return ProjectCache.get(project, CONTRIBUTIONS_KEY, () -> compute(project));
+    }
+
+    private static Map<String, List<XmlTag>> compute(Project project) {
         final Map<String, List<XmlTag>> result = new LinkedHashMap<>();
         final Deque<VirtualFile> queue = new ArrayDeque<>(
                 FilenameIndex.getVirtualFilesByName(HIVEMODULE_XML, GlobalSearchScope.allScope(project)));
@@ -76,13 +86,13 @@ public class HiveModules {
         return result;
     }
 
-    private static @Nullable VirtualFile findSubModule(final VirtualFile descriptor, final XmlTag subModule) {
+    private static @Nullable VirtualFile findSubModule(VirtualFile descriptor, XmlTag subModule) {
         final String path = SpecXml.attr(subModule, "descriptor");
         return path != null && descriptor.getParent() != null ? descriptor.getParent().findFileByRelativePath(path) : null;
     }
 
     /** Ohne Punkt ist die Configuration-ID relativ zum Modul. */
-    private static String qualifiedConfigurationId(final String moduleId, final XmlTag contribution) {
+    private static String qualifiedConfigurationId(String moduleId, XmlTag contribution) {
         final String configuration = StringUtil.notNullize(SpecXml.attr(contribution, "configuration-id"));
         return configuration.contains(".") ? configuration : "%s.%s".formatted(moduleId, configuration);
     }

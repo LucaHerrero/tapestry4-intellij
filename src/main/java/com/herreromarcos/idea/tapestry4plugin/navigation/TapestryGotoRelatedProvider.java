@@ -16,7 +16,7 @@ public class TapestryGotoRelatedProvider extends GotoRelatedProvider {
     private static final String GROUP = "Tapestry";
 
     @Override
-    public @NotNull List<? extends GotoRelatedItem> getItems(@NotNull final PsiElement context) {
+    public @NotNull List<? extends GotoRelatedItem> getItems(@NotNull PsiElement context) {
         final List<PsiElement> targets;
         final PsiClass psiClass = PsiTreeUtil.getParentOfType(context, PsiClass.class, false);
         if (psiClass != null) {

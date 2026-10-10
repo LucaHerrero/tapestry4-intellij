@@ -20,7 +20,6 @@ import org.jetbrains.annotations.NotNull;
 
 import static com.herreromarcos.idea.tapestry4plugin.TapestryConstants.ATTR_KEY;
 import static com.herreromarcos.idea.tapestry4plugin.TapestryConstants.TAG_PAGE;
-import static com.herreromarcos.idea.tapestry4plugin.TapestryConstants.TAG_SPAN;
 import static com.herreromarcos.idea.tapestry4plugin.references.TapestryReferenceBase.single;
 
 /**
@@ -35,7 +34,7 @@ import static com.herreromarcos.idea.tapestry4plugin.references.TapestryReferenc
 class TemplateReferenceProvider extends PsiReferenceProvider {
 
     @Override
-    public PsiReference @NotNull [] getReferencesByElement(@NotNull final PsiElement element, @NotNull final ProcessingContext context) {
+    public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement element, @NotNull ProcessingContext context) {
         if (!(element instanceof final XmlAttributeValue value) || !(value.getParent() instanceof final XmlAttribute attribute)) {
             return PsiReference.EMPTY_ARRAY;
         }
@@ -47,7 +46,7 @@ class TemplateReferenceProvider extends PsiReferenceProvider {
         if (TapestryConfiguration.isJwcidAttribute(attribute)) return jwcidReferences(value, text, offset);
         if (!TapestryConfiguration.isComponentTag(tag)) {
             // Lokalisierungs-Direktive <span key="hello">: Schlüssel ohne message:-Präfix (User's Guide, "Templates")
-            return isLocalizationDirective(tag) && ATTR_KEY.equalsIgnoreCase(attribute.getName())
+            return TapestryConfiguration.isLocalizationSpan(tag) && ATTR_KEY.equalsIgnoreCase(attribute.getName())
                     ? single(new MessageKeyReference(value, ElementManipulators.getValueTextRange(value)))
                     : PsiReference.EMPTY_ARRAY;
         }
@@ -61,12 +60,7 @@ class TemplateReferenceProvider extends PsiReferenceProvider {
         return BindingReferences.create(value, text, offset, null);
     }
 
-    /** {@code <span key="...">} ohne jwcid ist die Lokalisierungs-Direktive des Template-Parsers. */
-    static boolean isLocalizationDirective(@NotNull final XmlTag tag) {
-        return TAG_SPAN.equalsIgnoreCase(tag.getName()) && !TapestryConfiguration.isComponentTag(tag) && tag.getAttribute(ATTR_KEY) != null;
-    }
-
-    private static PsiReference[] jwcidReferences(final PsiElement value, final String text, final int offset) {
+    private static PsiReference[] jwcidReferences(PsiElement value, String text, int offset) {
         final Jwcid jwcid = Jwcid.parse(text);
         if (jwcid.special()) return PsiReference.EMPTY_ARRAY;
         if (jwcid.isImplicit()) {

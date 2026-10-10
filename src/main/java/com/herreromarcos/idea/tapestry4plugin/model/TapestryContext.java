@@ -3,6 +3,7 @@ package com.herreromarcos.idea.tapestry4plugin.model;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.xml.XmlFile;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -19,6 +20,11 @@ public record TapestryContext(@Nullable PsiFile template,
                               @Nullable PsiClass declaredClass,
                               @Nullable PsiClass effectiveClass,
                               SpecKind kind) {
+
+    /** Kontext einer Datei, die weder Template noch Spezifikation ist. */
+    public static @NotNull TapestryContext empty() {
+        return new TapestryContext(null, null, null, null, SpecKind.PAGE);
+    }
 
     /** Sind überhaupt Informationen vorhanden, gegen die geprüft werden kann? */
     public boolean isKnown() {

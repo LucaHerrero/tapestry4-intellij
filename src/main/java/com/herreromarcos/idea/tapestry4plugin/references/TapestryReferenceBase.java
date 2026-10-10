@@ -14,7 +14,7 @@ import org.jetbrains.annotations.Nullable;
 
 abstract class TapestryReferenceBase extends PsiReferenceBase<PsiElement> implements TapestryReference {
 
-    TapestryReferenceBase(@NotNull final PsiElement element, @NotNull final TextRange range) {
+    TapestryReferenceBase(@NotNull PsiElement element, @NotNull TextRange range) {
         super(element, range, true);
     }
 
@@ -28,7 +28,7 @@ abstract class TapestryReferenceBase extends PsiReferenceBase<PsiElement> implem
     }
 
     /** Eine einzelne Referenz als Array für die Provider; {@code null} ergibt ein leeres Array. */
-    static PsiReference @NotNull [] single(@Nullable final PsiReference reference) {
+    static PsiReference @NotNull [] single(@Nullable PsiReference reference) {
         return reference != null ? new PsiReference[]{reference} : PsiReference.EMPTY_ARRAY;
     }
 }

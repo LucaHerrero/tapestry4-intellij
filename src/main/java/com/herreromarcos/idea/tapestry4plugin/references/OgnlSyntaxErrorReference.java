@@ -10,7 +10,7 @@ import org.jetbrains.annotations.Nullable;
 public class OgnlSyntaxErrorReference extends TapestryReferenceBase {
     private final String message;
 
-    public OgnlSyntaxErrorReference(@NotNull final PsiElement element, @NotNull final TextRange range, @NotNull final String message) {
+    public OgnlSyntaxErrorReference(@NotNull PsiElement element, @NotNull TextRange range, @NotNull String message) {
         super(element, range);
         this.message = message;
     }

@@ -41,6 +41,8 @@ public class TapestryConfiguration {
     private static final Key<CachedValue<Map<String, List<String>>>> META_KEY = Key.create("tapestry4.applicationMeta");
     private static final Key<CachedValue<Map<String, List<String>>>> GLOBAL_KEY = Key.create("tapestry4.globalProperties");
     private static final String APPLICATION_DEFAULTS = "hivemind.ApplicationDefaults";
+    private static final String TAG_DEFAULT = "default";
+    private static final String ATTR_SYMBOL = "symbol";
 
     private TapestryConfiguration() {
     }
@@ -48,12 +50,12 @@ public class TapestryConfiguration {
     // ------------------------------------------------------------------ Meta-Daten
 
     /** Meta-Wert für eine Seite/Komponente über den vollständigen Suchpfad (siehe Klassenbeschreibung). */
-    public static @Nullable String findMeta(@NotNull final TapestryContext ctx, @NotNull final String key) {
+    public static @Nullable String findMeta(@NotNull TapestryContext ctx, @NotNull String key) {
         return ContainerUtil.getFirstItem(findMetaList(ctx, key));
     }
 
     /** Wie {@link #findMeta}, aber als kommaseparierte Liste (z.B. Paketlisten). */
-    public static @NotNull List<String> findMetaList(@NotNull final TapestryContext ctx, @NotNull final String key) {
+    public static @NotNull List<String> findMetaList(@NotNull TapestryContext ctx, @NotNull String key) {
         final String specMeta = SpecXml.meta(SpecXml.rootTag(ctx.spec()), key);
         if (specMeta != null) return SpecXml.splitList(specMeta);
         for (PsiClass cls = ctx.declaredClass(); cls != null; cls = cls.getSuperClass()) {
@@ -65,8 +67,8 @@ public class TapestryConfiguration {
     }
 
     /** Meta-Wert mit Fallback, falls nicht oder leer konfiguriert. */
-    private static @NotNull String findMetaOrDefault(@NotNull final TapestryContext ctx, @NotNull final String key,
-                                                     @NotNull final String defaultValue) {
+    private static @NotNull String findMetaOrDefault(@NotNull TapestryContext ctx, @NotNull String key,
+                                                     @NotNull String defaultValue) {
         final String configured = findMeta(ctx, key);
         return configured != null && !configured.isBlank() ? configured.trim() : defaultValue;
     }
@@ -75,7 +77,7 @@ public class TapestryConfiguration {
      * Namespace-Wert für die Datei einer Seite/Komponente: {@code <meta>} ihrer .library bzw. der .application,
      * sonst der globale Wert. Ohne Zugriff auf Klasse oder Kontext, daher auch während der Kontextberechnung nutzbar.
      */
-    public static @NotNull List<String> getNamespaceMeta(@NotNull final PsiFile owner, @NotNull final String key) {
+    public static @NotNull List<String> getNamespaceMeta(@NotNull PsiFile owner, @NotNull String key) {
         final Project project = owner.getProject();
         final VirtualFile vf = owner.getOriginalFile().getVirtualFile();
         final VirtualFile library = vf != null ? TapestryRegistry.findLibrary(project, vf) : null;
@@ -85,29 +87,31 @@ public class TapestryConfiguration {
     }
 
     /** Projektweiter Wert ohne Bezug zu einer Seite: .application, sonst global. */
-    public static @NotNull List<String> getProjectMeta(@NotNull final Project project, @NotNull final String key) {
+    public static @NotNull List<String> getProjectMeta(@NotNull Project project, @NotNull String key) {
         final List<String> applicationValues = getApplicationMeta(project).getOrDefault(key, List.of());
         return !applicationValues.isEmpty() ? applicationValues : getGlobalProperties(project).getOrDefault(key, List.of());
     }
 
     /** meta-Werte aller .application-Dateien (z.B. org.apache.tapestry.page-class-packages), kommasepariert aufgeteilt. */
-    private static Map<String, List<String>> getApplicationMeta(final Project project) {
-        return CachedValuesManager.getManager(project).getCachedValue(project, META_KEY, () -> {
-            final Map<String, List<String>> meta = new HashMap<>();
-            for (final VirtualFile app : FilenameIndex.getAllFilesByExt(project, EXT_APPLICATION, GlobalSearchScope.projectScope(project))) {
-                readMeta(project, app).forEach((key, values) -> meta.computeIfAbsent(key, k -> new ArrayList<>()).addAll(values));
-            }
-            return CachedValueProvider.Result.create(meta, PsiModificationTracker.MODIFICATION_COUNT);
-        }, false);
+    private static Map<String, List<String>> getApplicationMeta(Project project) {
+        return ProjectCache.get(project, META_KEY, () -> computeApplicationMeta(project));
+    }
+
+    private static Map<String, List<String>> computeApplicationMeta(Project project) {
+        final Map<String, List<String>> meta = new HashMap<>();
+        for (final VirtualFile app : FilenameIndex.getAllFilesByExt(project, EXT_APPLICATION, GlobalSearchScope.projectScope(project))) {
+            readMeta(project, app).forEach((key, values) -> meta.computeIfAbsent(key, k -> new ArrayList<>()).addAll(values));
+        }
+        return meta;
     }
 
     /** {@code <meta key value>} bzw. {@code <meta key>Wert</meta>} einer .application/.library. */
-    private static Map<String, List<String>> readMeta(final Project project, final VirtualFile specFile) {
+    private static Map<String, List<String>> readMeta(Project project, VirtualFile specFile) {
         final Map<String, List<String>> meta = new HashMap<>();
         final XmlTag root = SpecXml.rootTag(project, specFile);
         if (root == null) return meta;
         for (final XmlTag tag : root.findSubTags(TAG_META)) {
-            final String key = SpecXml.attr(tag, "key");
+            final String key = SpecXml.attr(tag, ATTR_KEY);
             final String value = tag.getAttributeValue(ATTR_VALUE);
             if (key != null) {
                 meta.computeIfAbsent(key, k -> new ArrayList<>())
@@ -121,18 +125,19 @@ public class TapestryConfiguration {
      * Globale Werte (tapestry.props.GlobalPropertySources): Servlet-{@code <init-param>}, {@code <context-param>},
      * dann die Symbole aus {@code hivemind.ApplicationDefaults}.
      */
-    private static Map<String, List<String>> getGlobalProperties(final Project project) {
-        return CachedValuesManager.getManager(project).getCachedValue(project, GLOBAL_KEY, () -> {
-            final Map<String, List<String>> result = new LinkedHashMap<>();
-            WebXml.tapestryParameters(project).forEach((key, value) -> result.putIfAbsent(key, SpecXml.splitList(value)));
-            for (final XmlTag symbol : HiveModules.getContributedElements(project, APPLICATION_DEFAULTS, "default")) {
-                final String key = SpecXml.attr(symbol, "symbol");
-                final String value = symbol.getAttributeValue(ATTR_VALUE);
-                if (key != null && value != null) result.putIfAbsent(key, SpecXml.splitList(value));
-            }
-            return CachedValueProvider.Result.create(result,
-                    PsiModificationTracker.MODIFICATION_COUNT, ProjectRootModificationTracker.getInstance(project));
-        }, false);
+    private static Map<String, List<String>> getGlobalProperties(Project project) {
+        return ProjectCache.get(project, GLOBAL_KEY, () -> computeGlobalProperties(project));
+    }
+
+    private static Map<String, List<String>> computeGlobalProperties(Project project) {
+        final Map<String, List<String>> result = new LinkedHashMap<>();
+        WebXml.tapestryParameters(project).forEach((key, value) -> result.putIfAbsent(key, SpecXml.splitList(value)));
+        for (final XmlTag symbol : HiveModules.getContributedElements(project, APPLICATION_DEFAULTS, TAG_DEFAULT)) {
+            final String key = SpecXml.attr(symbol, ATTR_SYMBOL);
+            final String value = symbol.getAttributeValue(ATTR_VALUE);
+            if (key != null && value != null) result.putIfAbsent(key, SpecXml.splitList(value));
+        }
+        return result;
     }
 
     // ------------------------------------------------------------------ Binding-Präfix
@@ -141,7 +146,7 @@ public class TapestryConfiguration {
      * Standard-Präfix für Bindings ohne Präfix in Spezifikationen und Annotationen: "ognl", sofern nicht über
      * {@code org.apache.tapestry.default-binding-prefix} anders konfiguriert.
      */
-    public static @NotNull String getDefaultBindingPrefix(@NotNull final PsiFile specification) {
+    public static @NotNull String getDefaultBindingPrefix(@NotNull PsiFile specification) {
         return findMetaOrDefault(TapestryModel.getContext(specification), META_DEFAULT_BINDING_PREFIX, PREFIX_OGNL);
     }
 
@@ -152,7 +157,7 @@ public class TapestryConfiguration {
      * {@code org.apache.tapestry.jwcid-attribute-name} (Spezifikation, {@code @Meta}, .application) geändert.
      * Während der Indexierung wird ohne Index-Zugriff der Standard verwendet.
      */
-    public static @NotNull String getJwcidAttribute(@NotNull final PsiFile template) {
+    public static @NotNull String getJwcidAttribute(@NotNull PsiFile template) {
         final PsiFile file = template.getOriginalFile();
         if (DumbService.isDumb(file.getProject())) return JWCID;
         return CachedValuesManager.getCachedValue(file, () -> CachedValueProvider.Result.create(
@@ -161,28 +166,33 @@ public class TapestryConfiguration {
     }
 
     /** Das Komponenten-Attribut ({@code jwcid} bzw. konfigurierter Name) eines Template-Tags. */
-    public static @Nullable XmlAttribute findJwcidAttribute(@NotNull final XmlTag tag) {
+    public static @Nullable XmlAttribute findJwcidAttribute(@NotNull XmlTag tag) {
         return tag.getAttribute(getJwcidAttribute(tag.getContainingFile()));
     }
 
     /** Wert-Element des Komponenten-Attributs, {@code null} ohne Attribut oder Wert. */
-    public static @Nullable XmlAttributeValue findJwcidValueElement(@NotNull final XmlTag tag) {
+    public static @Nullable XmlAttributeValue findJwcidValueElement(@NotNull XmlTag tag) {
         final XmlAttribute attribute = findJwcidAttribute(tag);
         return attribute != null ? attribute.getValueElement() : null;
     }
 
     /** Wert des Komponenten-Attributs, {@code null} ohne Attribut oder Wert. */
-    public static @Nullable String findJwcidValue(@NotNull final XmlTag tag) {
+    public static @Nullable String findJwcidValue(@NotNull XmlTag tag) {
         final XmlAttribute attribute = findJwcidAttribute(tag);
         return attribute != null ? attribute.getValue() : null;
     }
 
     /** Ist das Tag eine Tapestry-Komponente (trägt es das Komponenten-Attribut)? */
-    public static boolean isComponentTag(@NotNull final XmlTag tag) {
+    public static boolean isComponentTag(@NotNull XmlTag tag) {
         return findJwcidAttribute(tag) != null;
     }
 
-    public static boolean isJwcidAttribute(@NotNull final XmlAttribute attribute) {
+    /** {@code <span key="..." raw="true">} ohne Komponenten-Attribut: Lokalisierungs-Direktive des Template-Parsers. */
+    public static boolean isLocalizationSpan(@NotNull XmlTag tag) {
+        return TAG_SPAN.equalsIgnoreCase(tag.getName()) && !isComponentTag(tag);
+    }
+
+    public static boolean isJwcidAttribute(@NotNull XmlAttribute attribute) {
         return attribute.getName().equalsIgnoreCase(getJwcidAttribute(attribute.getContainingFile()));
     }
 
@@ -193,15 +203,15 @@ public class TapestryConfiguration {
      * sonst aus dem Namespace bzw. global, sonst "html". {@code @Meta} der Klasse bleibt hier außen vor, weil die
      * Klasse erst über den Kontext (und damit über das Template) bestimmt wird.
      */
-    public static @NotNull String getTemplateExtension(@NotNull final XmlFile spec) {
+    public static @NotNull String getTemplateExtension(@NotNull XmlFile spec) {
         final String specMeta = SpecXml.meta(spec.getRootTag(), META_TEMPLATE_EXTENSION);
         if (specMeta != null && !specMeta.isBlank()) return specMeta.trim();
         final List<String> configured = getNamespaceMeta(spec, META_TEMPLATE_EXTENSION);
-        return configured.isEmpty() ? TEMPLATE_EXT : configured.get(0);
+        return configured.isEmpty() ? TEMPLATE_EXT : configured.getFirst();
     }
 
     /** Alle im Projekt verwendeten Template-Endungen: "html" plus konfigurierte. */
-    public static @NotNull Set<String> getTemplateExtensions(@NotNull final Project project) {
+    public static @NotNull Set<String> getTemplateExtensions(@NotNull Project project) {
         final Set<String> result = new LinkedHashSet<>();
         result.add(TEMPLATE_EXT);
         result.addAll(getProjectMeta(project, META_TEMPLATE_EXTENSION));

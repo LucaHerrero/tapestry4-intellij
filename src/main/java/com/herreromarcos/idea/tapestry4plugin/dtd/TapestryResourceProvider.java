@@ -17,7 +17,7 @@ public class TapestryResourceProvider implements StandardResourceProvider {
     private static final String SCRIPT_4_0 = "dtd/Script_4_0.dtd";
 
     @Override
-    public void registerResources(final ResourceRegistrar registrar) {
+    public void registerResources(ResourceRegistrar registrar) {
         final ClassLoader loader = getClass().getClassLoader();
         // Tapestry 3.0 – laut Doku von Tapestry 4.0 weiterhin unterstützt
         registrar.addStdResource("-//Apache Software Foundation//Tapestry Specification 3.0//EN", DTD_3_0, loader);

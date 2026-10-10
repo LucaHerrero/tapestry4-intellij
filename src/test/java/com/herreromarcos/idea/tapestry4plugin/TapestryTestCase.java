@@ -1,5 +1,6 @@
 package com.herreromarcos.idea.tapestry4plugin;
 
+import com.intellij.codeInsight.daemon.impl.HighlightInfo;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
@@ -95,17 +96,17 @@ public abstract class TapestryTestCase extends LightJavaCodeInsightFixtureTestCa
     }
 
     /** Seitenspezifikation (Tapestry 4.0) mit dem angegebenen Inhalt. */
-    protected static String page(final String body) {
+    protected static String page(String body) {
         return DOCTYPE_4_0.formatted("page-specification") + body;
     }
 
     /** Komponentenspezifikation (Tapestry 4.0) mit dem angegebenen Inhalt. */
-    protected static String component(final String body) {
+    protected static String component(String body) {
         return DOCTYPE_4_0.formatted("component-specification") + body;
     }
 
     /** Legt die Datei an und öffnet sie im Editor; {@code <caret>} markiert die Cursorposition. */
-    protected PsiFile configure(final String path, final String textWithCaret) {
+    protected PsiFile configure(String path, String textWithCaret) {
         final int caret = textWithCaret.indexOf(CARET);
         final PsiFile file = myFixture.addFileToProject(path, textWithCaret.replace(CARET, ""));
         myFixture.configureFromExistingVirtualFile(file.getVirtualFile());
@@ -126,32 +127,32 @@ public abstract class TapestryTestCase extends LightJavaCodeInsightFixtureTestCa
         return items;
     }
 
-    protected List<String> highlightingMessages(final HighlightSeverity minimum) {
+    protected List<String> highlightingMessages(HighlightSeverity minimum) {
         return myFixture.doHighlighting().stream()
                 .filter(info -> info.getSeverity().compareTo(minimum) >= 0)
-                .map(info -> info.getDescription())
+                .map(HighlightInfo::getDescription)
                 .toList();
     }
 
     /** Legt die Datei an und liefert alle Meldungen ab Warnung. */
-    protected List<String> warnings(final String path, final String text) {
+    protected List<String> warnings(String path, String text) {
         configure(path, text);
         return highlightingMessages(HighlightSeverity.WARNING);
     }
 
-    protected boolean hasErrorOn(final String text) {
+    protected boolean hasErrorOn() {
         return myFixture.doHighlighting().stream()
-                .anyMatch(info -> info.getSeverity() == HighlightSeverity.ERROR && info.getText().contains(text));
+                .anyMatch(info -> info.getSeverity() == HighlightSeverity.ERROR && info.getText().contains("unknown-element"));
     }
 
     /** Laut DTD erlaubte Kindelemente des Tags. */
-    protected static List<String> allowedChildren(final XmlTag tag) {
+    protected static List<String> allowedChildren(XmlTag tag) {
         final XmlElementDescriptor descriptor = tag.getDescriptor();
         assertNotNull("no DTD descriptor for <" + tag.getName() + ">", descriptor);
         return Arrays.stream(descriptor.getElementsDescriptors(tag)).map(XmlElementDescriptor::getName).toList();
     }
 
-    protected static XmlTag rootTag(final PsiFile file) {
+    protected static XmlTag rootTag(PsiFile file) {
         assertInstanceOf(file, XmlFile.class);
         return ((XmlFile) file).getRootTag();
     }

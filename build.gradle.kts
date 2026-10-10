@@ -8,7 +8,7 @@ plugins {
 // Gradle-Version (gradle/wrapper): nicht neuer als die IntelliJ-Version, mit der das Projekt bearbeitet wird –
 // IntelliJ 2026.2 übernimmt mit Gradle 9.8.x die Abhängigkeiten des main-Source-Sets nicht ins IDE-Modell.
 group = "com.herreromarcos.idea"
-version = "0.3.0"
+version = "0.3.1"
 
 repositories {
     mavenCentral()
@@ -50,6 +50,13 @@ intellijPlatform {
         name = "Tapestry 4 Support"
         version = project.version.toString()
         changeNotes = """
+            <b>0.3.1</b>
+            <ul>
+              <li>Fixed possible NullPointerExceptions for <code>&lt;parameter&gt;</code> without name and classes
+                  without modifier list</li>
+              <li><i>New → Tapestry 4 Page / Component</i>: text and icon declared in plugin.xml, capitalised dialog titles</li>
+              <li>Internal clean-up: shared caching, duplicated code removed</li>
+            </ul>
             <b>0.3.0</b>
             <ul>
               <li>OGNL expressions are parsed with the original OGNL 2.6.9 parser: syntax errors are reported,

@@ -3,6 +3,7 @@ package com.herreromarcos.idea.tapestry4plugin;
 import java.util.List;
 import java.util.Set;
 
+/** Namen aus Tapestry 4.0/4.1: Dateiendungen, Elemente/Attribute der Spezifikationen, Meta-Schlüssel, Binding-Präfixe. */
 public class TapestryConstants {
     public static final String JWCID = "jwcid";
     public static final String CONTENT_ID = "$content$";
@@ -95,14 +96,6 @@ public class TapestryConstants {
     public static final String ANNOTATION_BEAN = ANNOTATIONS + "Bean";
     public static final String ANNOTATION_COMPONENT_CLASS = ANNOTATIONS + "ComponentClass";
     public static final String ANNOTATION_META = ANNOTATIONS + "Meta";
-    public static final String ANNOTATION_INJECT_PAGE = ANNOTATIONS + "InjectPage";
-    public static final String ANNOTATION_INJECT_COMPONENT = ANNOTATIONS + "InjectComponent";
-    public static final String ANNOTATION_INJECT_ASSET = ANNOTATIONS + "InjectAsset";
-    public static final String ANNOTATION_INJECT_SCRIPT = ANNOTATIONS + "InjectScript";
-    public static final String ANNOTATION_MESSAGE = ANNOTATIONS + "Message";
-    public static final String ANNOTATION_INITIAL_VALUE = ANNOTATIONS + "InitialValue";
-    public static final String ANNOTATION_INJECT_STATE = ANNOTATIONS + "InjectState";
-    public static final String ANNOTATION_INJECT_STATE_FLAG = ANNOTATIONS + "InjectStateFlag";
 
     public static final String PREFIX_OGNL = "ognl";
     public static final String PREFIX_LITERAL = "literal";

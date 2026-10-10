@@ -28,8 +28,8 @@ class BindingReferences {
      * @param offset        Offset von {@code text} innerhalb von {@code element}
      * @param defaultPrefix Präfix, wenn keines angegeben ist (Spezifikation: "ognl" bzw. default-binding-prefix, Template: {@code null} = Literal)
      */
-    static PsiReference @NotNull [] create(@NotNull final PsiElement element, @NotNull final String text, final int offset,
-                                           @Nullable final String defaultPrefix) {
+    static PsiReference @NotNull [] create(@NotNull PsiElement element, @NotNull String text, int offset,
+                                           @Nullable String defaultPrefix) {
         final BindingExpression binding = BindingExpression.parse(text, element);
         final List<PsiReference> result = new ArrayList<>();
         final TextRange prefixRange = prefixRange(binding, offset);
@@ -47,14 +47,14 @@ class BindingReferences {
     }
 
     /** Bereich des (registrierten oder unregistrierten) Präfixes ohne Doppelpunkt. */
-    private static TextRange prefixRange(final BindingExpression binding, final int offset) {
+    private static TextRange prefixRange(BindingExpression binding, int offset) {
         final String text = binding.text();
         final String name = binding.registeredPrefix() != null ? binding.registeredPrefix() : StringUtil.notNullize(binding.unregisteredPrefix());
         return TextRange.from(offset + text.length() - text.stripLeading().length(), name.length());
     }
 
-    private static PsiReference[] createForPrefix(final PsiElement element, final String prefix, final String expression,
-                                                  final int expressionOffset) {
+    private static PsiReference[] createForPrefix(PsiElement element, String prefix, String expression,
+                                                  int expressionOffset) {
         if (PREFIX_OGNL.equals(prefix)) return createOgnl(element, expression, expressionOffset);
         if (PREFIX_VALIDATORS.equals(prefix)) return createValidators(element, expression, expressionOffset);
 
@@ -77,7 +77,7 @@ class BindingReferences {
      * OGNL-Ausdruck: pro Glied jeder auflösbaren Kette eine Referenz ({@link OgnlExpression}), dazu Klassennamen aus
      * {@code new}, {@code instanceof} und {@code @Klasse@member}.
      */
-    static PsiReference[] createOgnl(final PsiElement element, final String expr, final int offset) {
+    static PsiReference[] createOgnl(PsiElement element, String expr, int offset) {
         final OgnlExpression ognl = OgnlExpression.parse(expr);
         final OgnlExpression.SyntaxError syntaxError = ognl.syntaxError();
         if (syntaxError != null) return single(new OgnlSyntaxErrorReference(element, syntaxError.range().shiftRight(offset), syntaxError.message()));
@@ -107,7 +107,7 @@ class BindingReferences {
      * Einträge werden an Kommas außerhalb von {@code [...]} getrennt; {@code $name} verweist auf eine {@code <bean>},
      * eine Meldung {@code [%key]} auf einen Message-Key.
      */
-    static PsiReference[] createValidators(final PsiElement element, final String expr, final int offset) {
+    static PsiReference[] createValidators(PsiElement element, String expr, int offset) {
         final List<PsiReference> result = new ArrayList<>();
         int depth = 0;
         int entryStart = 0;
@@ -123,7 +123,7 @@ class BindingReferences {
         return result.toArray(PsiReference.EMPTY_ARRAY);
     }
 
-    private static void addValidatorReferences(final PsiElement element, final String entry, final int offset, final List<PsiReference> result) {
+    private static void addValidatorReferences(PsiElement element, String entry, int offset, List<PsiReference> result) {
         final int leading = entry.length() - entry.stripLeading().length();
         final int messageStart = entry.indexOf('[');
         final String head = (messageStart >= 0 ? entry.substring(0, messageStart) : entry).trim();
@@ -137,7 +137,7 @@ class BindingReferences {
     }
 
     /** Leer (für die Completion) oder ein Java-Bezeichner. */
-    private static boolean isSimpleName(final String s) {
+    private static boolean isSimpleName(String s) {
         return s.isEmpty() || SourceVersion.isIdentifier(s);
     }
 }

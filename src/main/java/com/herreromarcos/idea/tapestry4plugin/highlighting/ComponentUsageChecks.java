@@ -20,13 +20,13 @@ class ComponentUsageChecks {
     private ComponentUsageChecks() {
     }
 
-    static void checkComponentId(final AnnotationHolder holder, final String id) {
+    static void checkComponentId(AnnotationHolder holder, String id) {
         if (!COMPONENT_ID.matcher(id).matches()) {
             holder.newAnnotation(HighlightSeverity.ERROR, "Invalid component id '%s': must be a Java identifier".formatted(id)).create();
         }
     }
 
-    static void checkDeprecatedComponent(final AnnotationHolder holder, final XmlFile spec, final String type, final PsiElement anchor) {
+    static void checkDeprecatedComponent(AnnotationHolder holder, XmlFile spec, String type, PsiElement anchor) {
         if (ComponentModel.isDeprecated(spec)) {
             holder.newAnnotation(HighlightSeverity.WARNING, "Component '%s' is deprecated".formatted(type))
                     .range(anchor).highlightType(ProblemHighlightType.LIKE_DEPRECATED).create();
@@ -42,8 +42,8 @@ class ComponentUsageChecks {
      *   <li>informeller Parameter bei {@code allow-informal-parameters="no"}, kein Literal → Fehler (nur im Template)</li>
      * </ul>
      */
-    static void checkParameterUsage(final AnnotationHolder holder, final XmlFile spec, final String type, final String name,
-                                    final boolean literal, final Set<String> specBound, final PsiElement anchor) {
+    static void checkParameterUsage(AnnotationHolder holder, XmlFile spec, String type, String name,
+                                    boolean literal, Set<String> specBound, PsiElement anchor) {
         final ComponentParameter parameter = ComponentModel.findParameter(spec, name);
         if (parameter != null) {
             if (parameter.isAlias(name) && !parameter.name().equalsIgnoreCase(name)) {
@@ -71,7 +71,7 @@ class ComponentUsageChecks {
     }
 
     /** Ist der Parameter unter seinem Namen oder einem Alias in den (normalisierten) gebundenen Namen enthalten? */
-    static boolean isBound(final ComponentParameter parameter, final Set<String> bound) {
+    static boolean isBound(ComponentParameter parameter, Set<String> bound) {
         return bound.contains(ComponentModel.normalize(parameter.name()))
                 || parameter.aliases().stream().anyMatch(alias -> bound.contains(ComponentModel.normalize(alias)));
     }

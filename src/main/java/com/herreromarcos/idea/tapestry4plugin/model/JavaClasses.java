@@ -25,7 +25,7 @@ public class JavaClasses {
     }
 
     /** Sucht zuerst im Resolve-Scope des Kontexts, dann im ganzen Projekt. */
-    public static @Nullable PsiClass find(@NotNull final String fqn, @Nullable final PsiElement context) {
+    public static @Nullable PsiClass find(@NotNull String fqn, @Nullable PsiElement context) {
         if (context == null) return null;
         final Project project = context.getProject();
         final JavaPsiFacade facade = JavaPsiFacade.getInstance(project);
@@ -34,7 +34,7 @@ public class JavaClasses {
     }
 
     /** Wert zu {@code key} aus {@code @Meta({"key=value", ...})} direkt an der Klasse, sonst {@code null}. */
-    public static @Nullable String metaAnnotationValue(@NotNull final PsiClass psiClass, @NotNull final String key) {
+    public static @Nullable String metaAnnotationValue(@NotNull PsiClass psiClass, @NotNull String key) {
         final PsiModifierList modifiers = psiClass.getModifierList();
         final PsiAnnotation meta = modifiers != null ? modifiers.findAnnotation(TapestryConstants.ANNOTATION_META) : null;
         if (meta == null) return null;
@@ -49,7 +49,7 @@ public class JavaClasses {
     }
 
     /** Sind alle Oberklassen auflösbar? Nur dann darf "nicht gefunden" als Fehler gemeldet werden. */
-    public static boolean isHierarchyResolved(@NotNull final PsiClass psiClass) {
+    public static boolean isHierarchyResolved(@NotNull PsiClass psiClass) {
         final Set<PsiClass> visited = new HashSet<>();
         for (PsiClass current = psiClass; current != null && visited.add(current); current = current.getSuperClass()) {
             for (final PsiClassType type : current.getExtendsListTypes()) {

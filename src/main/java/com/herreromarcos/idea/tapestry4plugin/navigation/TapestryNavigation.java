@@ -24,7 +24,7 @@ class TapestryNavigation {
     private TapestryNavigation() {
     }
 
-    static @NotNull List<PsiElement> relatedToClass(@NotNull final PsiClass psiClass) {
+    static @NotNull List<PsiElement> relatedToClass(@NotNull PsiClass psiClass) {
         final Set<PsiElement> result = new LinkedHashSet<>();
         for (final XmlFile spec : TapestryModel.findSpecsForClass(psiClass)) {
             result.add(spec);
@@ -34,7 +34,7 @@ class TapestryNavigation {
         return new ArrayList<>(result);
     }
 
-    static @NotNull List<PsiElement> relatedToFile(@NotNull final PsiFile file) {
+    static @NotNull List<PsiElement> relatedToFile(@NotNull PsiFile file) {
         final List<PsiElement> result = new ArrayList<>();
         if (!TapestryFiles.isTemplateFile(file) && !TapestryFiles.isSpecFile(file)) return result;
         final TapestryContext ctx = TapestryModel.getContext(file);
@@ -48,7 +48,7 @@ class TapestryNavigation {
     }
 
     /** Alle Template-Tags, die eine in der Spezifikation deklarierte Komponente verwenden. */
-    static @NotNull List<PsiElement> templateUsages(@NotNull final XmlFile spec, @NotNull final String componentId) {
+    static @NotNull List<PsiElement> templateUsages(@NotNull XmlFile spec, @NotNull String componentId) {
         final List<PsiElement> result = new ArrayList<>();
         for (final PsiFile template : TapestryModel.findTemplatesForSpec(spec)) {
             for (final XmlTag tag : PsiTreeUtil.findChildrenOfType(template, XmlTag.class)) {

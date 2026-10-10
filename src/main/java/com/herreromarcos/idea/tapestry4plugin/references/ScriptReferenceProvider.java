@@ -19,7 +19,7 @@ import org.jetbrains.annotations.NotNull;
 class ScriptReferenceProvider extends PsiReferenceProvider {
 
     @Override
-    public PsiReference @NotNull [] getReferencesByElement(@NotNull final PsiElement element, @NotNull final ProcessingContext context) {
+    public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement element, @NotNull ProcessingContext context) {
         if (!(element instanceof final XmlAttributeValue value) || !(value.getParent() instanceof final XmlAttribute attribute)) {
             return PsiReference.EMPTY_ARRAY;
         }
@@ -32,7 +32,7 @@ class ScriptReferenceProvider extends PsiReferenceProvider {
                 ElementManipulators.getValueTextRange(value).getStartOffset(), false);
     }
 
-    private static boolean isScriptFile(final PsiFile file) {
+    private static boolean isScriptFile(PsiFile file) {
         return file instanceof final XmlFile xml && xml.getRootTag() != null && "script".equals(xml.getRootTag().getName());
     }
 }

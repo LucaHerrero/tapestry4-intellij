@@ -12,7 +12,7 @@ import org.jetbrains.annotations.Nullable;
 /** Seitenname, z.B. {@code page="Home"} an PageLink oder {@code <inject type="page" object="Home"/>}. */
 public class PageReference extends TapestryReferenceBase {
 
-    public PageReference(@NotNull final PsiElement element, @NotNull final TextRange range) {
+    public PageReference(@NotNull PsiElement element, @NotNull TextRange range) {
         super(element, range);
     }
 

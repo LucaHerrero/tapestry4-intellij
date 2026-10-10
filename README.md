@@ -7,7 +7,7 @@ Unterstützung für Apache Tapestry 4.0/4.1 in IntelliJ IDEA **2024.3.5** (Build
 ```
 gradlew buildPlugin
 ```
-→ `build/distributions/tapestry4-intellij-0.3.0.zip`, dann in IntelliJ: *Settings → Plugins → ⚙ → Install Plugin from Disk…*
+→ `build/distributions/tapestry4-intellij-0.3.1.zip`, dann in IntelliJ: *Settings → Plugins → ⚙ → Install Plugin from Disk…*
 
 Zum Ausprobieren in einer Sandbox-IDE: `gradlew runIde`. Tests: `gradlew test`. Kompatibilitätsprüfung: `gradlew verifyPlugin`.
 
@@ -116,7 +116,7 @@ Jeder Push auf `master` startet den Workflow [`.github/workflows/release.yml`](.
 
 **Gradle-Version:** Der Wrapper steht bewusst auf **Gradle 9.7.1**. Mit Gradle 9.8.x (neuer als IntelliJ 2026.2.3) übernimmt der IntelliJ-Sync die Abhängigkeiten des `main`-Source-Sets nicht ins IDE-Modell – der Kommandozeilen-Build funktioniert, im Editor sind aber alle `com.intellij.*`-Imports rot. Gradle erst aktualisieren, wenn die IDE nachgezogen hat.
 
-**Code-Stil:** Meldungstexte als Format-Strings (`"Unknown page '%s'".formatted(name)`); `final` an Feldern, Parametern und lokalen Variablen, sofern nicht neu zugewiesen; kein `final` an Klassen.
+**Code-Stil:** Meldungstexte als Format-Strings (`"Unknown page '%s'".formatted(name)`); `final` an Feldern und lokalen Variablen, sofern nicht neu zugewiesen; kein `final` an Methoden-, Konstruktor- und Lambda-Parametern und an Klassen.
 
 **Abhängigkeiten:** Allgemeine Funktionen kommen aus Bibliotheken statt aus eigenem Code – OGNL-Parser aus `ognl:ognl:2.6.9` (wird ins Plugin gepackt), String-Hilfen aus Apache Commons Lang 3 (liefert die IntelliJ-Plattform mit, daher nur `compileOnly`), Bezeichner-Prüfung über `javax.lang.model.SourceVersion`.
 
