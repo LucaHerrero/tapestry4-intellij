@@ -7,7 +7,7 @@ Unterstützung für Apache Tapestry 4.0/4.1 in IntelliJ IDEA **2024.3.5** (Build
 ```
 gradlew buildPlugin
 ```
-→ `build/distributions/tapestry4-intellij-0.3.1.zip`, dann in IntelliJ: *Settings → Plugins → ⚙ → Install Plugin from Disk…*
+→ `build/distributions/tapestry4-intellij-0.3.2.zip`, dann in IntelliJ: *Settings → Plugins → ⚙ → Install Plugin from Disk…*
 
 Zum Ausprobieren in einer Sandbox-IDE: `gradlew runIde`. Tests: `gradlew test`. Kompatibilitätsprüfung: `gradlew verifyPlugin`.
 

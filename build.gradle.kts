@@ -8,7 +8,7 @@ plugins {
 // Gradle-Version (gradle/wrapper): nicht neuer als die IntelliJ-Version, mit der das Projekt bearbeitet wird –
 // IntelliJ 2026.2 übernimmt mit Gradle 9.8.x die Abhängigkeiten des main-Source-Sets nicht ins IDE-Modell.
 group = "com.herreromarcos.idea"
-version = "0.3.1"
+version = "0.3.2"
 
 repositories {
     mavenCentral()
@@ -30,7 +30,7 @@ dependencies {
         isTransitive = false
     }
     // Apache Commons Lang 3 liefert die IntelliJ-Plattform mit (lib/util-8.jar) – nicht ins Plugin packen
-    compileOnly("org.apache.commons:commons-lang3:3.17.0")
+    compileOnly("org.apache.commons:commons-lang3:3.18.0")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.opentest4j:opentest4j:1.3.0")
 }
@@ -50,6 +50,10 @@ intellijPlatform {
         name = "Tapestry 4 Support"
         version = project.version.toString()
         changeNotes = """
+            <b>0.3.2</b>
+            <ul>
+              <li>No longer uses the deprecated <code>StringUtils.removeStart</code> of Apache Commons Lang</li>
+            </ul>
             <b>0.3.1</b>
             <ul>
               <li>Fixed possible NullPointerExceptions for <code>&lt;parameter&gt;</code> without name and classes
