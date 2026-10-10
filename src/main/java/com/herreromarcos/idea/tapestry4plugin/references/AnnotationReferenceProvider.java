@@ -4,11 +4,11 @@ import com.herreromarcos.idea.tapestry4plugin.model.TapestryConfiguration;
 import com.herreromarcos.idea.tapestry4plugin.model.TapestryContext;
 import com.herreromarcos.idea.tapestry4plugin.model.TapestryModel;
 import com.intellij.openapi.util.TextRange;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.util.ProcessingContext;
-import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,7 +43,7 @@ class AnnotationReferenceProvider extends PsiReferenceProvider {
         final String text = ElementManipulators.getValueText(literal);
         final TextRange range = ElementManipulators.getValueTextRange(literal);
         final int offset = range.getStartOffset();
-        return switch ("%s#%s".formatted(StringUtils.removeStart(qualifiedName, ANNOTATIONS), attribute)) {
+        return switch ("%s#%s".formatted(StringUtil.trimStart(qualifiedName, ANNOTATIONS), attribute)) {
             case "InjectPage#value" -> single(new PageReference(literal, range));
             case "InjectComponent#value", "Component#copyOf" -> single(new ComponentIdReference(literal, range, false));
             case "Component#type" -> single(new ComponentTypeReference(literal, range));

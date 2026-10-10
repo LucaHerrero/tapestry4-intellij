@@ -5,7 +5,6 @@ import com.intellij.openapi.roots.OrderEnumerator;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
-import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -33,7 +32,7 @@ public class TapestryPaths {
      */
     public static @Nullable VirtualFile resolve(@NotNull Project project, @NotNull String specificationPath,
                                                 @NotNull VirtualFile relativeTo) {
-        final String path = StringUtils.removeStart(StringUtils.removeStart(specificationPath.trim(), "classpath:"), "context:");
+        final String path = StringUtil.trimStart(StringUtil.trimStart(specificationPath.trim(), "classpath:"), "context:");
         if (!path.startsWith("/")) {
             final VirtualFile parent = relativeTo.getParent();
             return parent != null ? parent.findFileByRelativePath(path) : null;

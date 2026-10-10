@@ -4,7 +4,6 @@ import com.herreromarcos.idea.tapestry4plugin.model.TapestryPaths;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.source.resolve.reference.impl.providers.FileReferenceSet;
-import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,7 +36,7 @@ class SpecPathReferences {
     static PsiReference @NotNull [] create(@NotNull PsiElement value, @NotNull String text, int offset, boolean soft,
                                            @Nullable VirtualFile base) {
         final String mode = Stream.of(CONTEXT, CLASSPATH).filter(text::startsWith).findFirst().orElse(null);
-        final String path = StringUtils.removeStart(text, mode);
+        final String path = mode != null ? text.substring(mode.length()) : text;
         if (mode == null && URL_SCHEME.matcher(path).find() || path.contains("${")) return PsiReference.EMPTY_ARRAY;
         return new PathReferenceSet(path, value, offset + text.length() - path.length(), mode, soft, base).getAllReferences();
     }
