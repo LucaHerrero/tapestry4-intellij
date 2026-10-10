@@ -42,6 +42,7 @@ public class SpecificationSupportTest extends TapestryTestCase {
                 """);
         final XmlTag component = rootTag(file).findFirstSubTag("component");
         // Original 4.1-DTD: <!ELEMENT component (meta | binding | inherited-binding )*>
+        assertNotNull(component);
         assertSameElements(allowedChildren(component), "meta", "binding", "inherited-binding");
 
         configure("Invalid41.jwc", DOCTYPE_4_1.formatted("component-specification") + """
@@ -49,7 +50,7 @@ public class SpecificationSupportTest extends TapestryTestCase {
                   <unknown-element/>
                 </component-specification>
                 """);
-        assertTrue(hasErrorOn("unknown-element"));
+        assertTrue(hasErrorOn());
     }
 
     public void testOriginalScriptDtds() {
@@ -69,7 +70,7 @@ public class SpecificationSupportTest extends TapestryTestCase {
             final List<String> children = allowedChildren(rootTag(file));
             assertTrue(doctypes[i][0] + " " + children,
                     children.containsAll(List.of("include-script", "input-symbol", "body", "initialization")));
-            assertTrue(doctypes[i][0], hasErrorOn("unknown-element"));
+            assertTrue(doctypes[i][0], hasErrorOn());
         }
     }
 
@@ -77,6 +78,6 @@ public class SpecificationSupportTest extends TapestryTestCase {
         final PsiClass home = myFixture.findClass("com.example.Home");
         final List<XmlFile> specs = TapestryModel.findSpecsForClass(home);
         assertEquals(1, specs.size());
-        assertEquals("Home.page", specs.get(0).getName());
+        assertEquals("Home.page", specs.getFirst().getName());
     }
 }
