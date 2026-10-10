@@ -13,12 +13,14 @@ public class TapestryConstants {
     public static final String EXT_COMPONENT = "jwc";
     public static final String EXT_APPLICATION = "application";
     public static final String EXT_LIBRARY = "library";
+    public static final String EXT_SCRIPT = "script";
     public static final String TEMPLATE_EXT = "html";
 
     public static final String ROOT_PAGE = "page-specification";
     public static final String ROOT_COMPONENT = "component-specification";
     public static final String ROOT_APPLICATION = "application";
     public static final String ROOT_LIBRARY = "library-specification";
+    public static final String ROOT_SCRIPT = "script";
 
     // Kind-Elemente der Spezifikationen (Tapestry 4.0/4.1)
     public static final String TAG_COMPONENT = "component";

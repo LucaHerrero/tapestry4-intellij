@@ -1,5 +1,6 @@
 package com.herreromarcos.idea.tapestry4plugin.references;
 
+import com.herreromarcos.idea.tapestry4plugin.TapestryConstants;
 import com.intellij.psi.ElementManipulators;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
@@ -33,6 +34,6 @@ class ScriptReferenceProvider extends PsiReferenceProvider {
     }
 
     private static boolean isScriptFile(PsiFile file) {
-        return file instanceof final XmlFile xml && xml.getRootTag() != null && "script".equals(xml.getRootTag().getName());
+        return file instanceof final XmlFile xml && xml.getRootTag() != null && TapestryConstants.ROOT_SCRIPT.equals(xml.getRootTag().getName());
     }
 }

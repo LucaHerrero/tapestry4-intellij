@@ -23,7 +23,7 @@ Wer es erst einmal ausprobieren will, startet mit `gradlew runIde` eine Sandbox-
 Heißt das Attribut im Projekt anders (über `org.apache.tapestry.jwcid-attribute-name`), nimmt das Plugin den konfigurierten Namen.
 
 ### Spezifikationen
-- `.page`, `.jwc`, `.application`, `.library` und `.script` werden als XML erkannt und bekommen eigene Icons.
+- `.page`, `.jwc`, `.application`, `.library` und `.script` werden als XML erkannt und bekommen eigene Icons. Das Plugin schaut dafür aufs Wurzel-Element, eine `.page` oder `.script`, die nichts mit Tapestry zu tun hat, bleibt also unangetastet.
 - Die Original-DTDs von Tapestry (3.0, 4.0 und 4.1) sind dabei. Completion und Validierung funktionieren deshalb auch ohne Netzwerk.
 - Komponententypen, Parameter, Klassen, Beans, Assets, injizierte Seiten und Application State Objects lassen sich per Strg+Klick öffnen.
 

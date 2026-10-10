@@ -32,8 +32,8 @@
     <depends>com.intellij.properties</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <!-- Tapestry-Spezifikationen und Script-Dateien sind XML -->
-        <fileType name="XML" extensions="jwc;page;application;library;script"/>
+        <!-- Tapestry-Spezifikationen und Script-Dateien sind XML – erkannt am Wurzel-Element, nicht global über die Endung -->
+        <fileTypeDetector implementation="com.herreromarcos.idea.tapestry4plugin.filetype.TapestryFileTypeDetector"/>
         <standardResourceProvider implementation="com.herreromarcos.idea.tapestry4plugin.dtd.TapestryResourceProvider"/>
         <iconProvider implementation="com.herreromarcos.idea.tapestry4plugin.navigation.TapestryIconProvider" order="first"/>
 

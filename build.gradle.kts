@@ -8,7 +8,7 @@ plugins {
 // Gradle-Version (gradle/wrapper): nicht neuer als die IntelliJ-Version, mit der das Projekt bearbeitet wird –
 // IntelliJ 2026.2 übernimmt mit Gradle 9.8.x die Abhängigkeiten des main-Source-Sets nicht ins IDE-Modell.
 group = "com.herreromarcos.idea"
-version = "0.3.2"
+version = "0.3.3"
 
 repositories {
     mavenCentral()
@@ -50,6 +50,12 @@ intellijPlatform {
         name = "Tapestry 4 Support"
         version = project.version.toString()
         changeNotes = """
+            <b>0.3.3</b>
+            <ul>
+              <li>.page, .jwc, .application, .library and .script files are treated as XML only if they are Tapestry
+                  specifications (detected by their root element); other files with these extensions keep their type</li>
+              <li>Plugin logo in 40×40 with a dark variant</li>
+            </ul>
             <b>0.3.2</b>
             <ul>
               <li>No longer uses the deprecated <code>StringUtils.removeStart</code> of Apache Commons Lang</li>
