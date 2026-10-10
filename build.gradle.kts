@@ -47,7 +47,7 @@ intellijPlatform {
 
     pluginConfiguration {
         id = "com.herreromarcos.idea.tapestry4plugin"
-        name = "Tapestry 4 Support"
+        name = "Tapestry 4"
         version = project.version.toString()
         changeNotes = """
             <b>0.3.3</b>
@@ -55,6 +55,7 @@ intellijPlatform {
               <li>.page, .jwc, .application, .library and .script files are treated as XML only if they are Tapestry
                   specifications (detected by their root element); other files with these extensions keep their type</li>
               <li>Plugin logo in 40×40 with a dark variant</li>
+              <li>Plugin renamed to "Tapestry 4"; vendor e-mail and website added</li>
             </ul>
             <b>0.3.2</b>
             <ul>

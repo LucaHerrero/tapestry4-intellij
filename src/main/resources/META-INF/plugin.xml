@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.herreromarcos.idea.tapestry4plugin</id>
     <name>Tapestry 4</name>
-    <vendor>Luca Herrero Marcos</vendor>
+    <vendor email="luca@herreromarcos.com" url="https://github.com/LucaHerrero/tapestry4-intellij">Luca Herrero Marcos</vendor>
 
     <description><![CDATA[
     Support for <b>Apache Tapestry 4.0 / 4.1</b> web applications.

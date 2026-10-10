@@ -1,4 +1,4 @@
-# Tapestry 4 Support für IntelliJ IDEA
+# Tapestry 4 für IntelliJ IDEA
 
 Ein Plugin für alle, die noch mit Apache Tapestry 4.0 oder 4.1 arbeiten. Es läuft ab IntelliJ IDEA 2024.3, in der Community- wie in der Ultimate-Edition.
 

@@ -69,5 +69,5 @@ jobs:
           gh release create "${{ steps.version.outputs.tag }}" \
             build/distributions/*.zip \
             --target "${{ github.sha }}" \
-            --title "Tapestry 4 Support ${{ steps.version.outputs.version }}" \
+            --title "Tapestry 4 ${{ steps.version.outputs.version }}" \
             --generate-notes
