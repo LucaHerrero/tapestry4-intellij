@@ -142,7 +142,7 @@ public class OgnlPropertyReference extends TapestryReferenceBase {
             final PsiMethod[] methods = cls.findMethodsByName(name, true);
             return methods.length > 0 ? new Target(methods[0], substitutor.substitute(methods[0].getReturnType())) : null;
         }
-        final PsiMethod getter = PropertyUtilBase.findPropertyGetter(cls, name, false, true);
+        final PsiMethod getter = JavaClasses.findGetter(cls, name);
         if (getter != null) return new Target(getter, substitutor.substitute(getter.getReturnType()));
         // Nur ein Setter reicht: Tapestry erzeugt den fehlenden Getter (User's Guide, "Persistent page properties")
         final PsiMethod setter = PropertyUtilBase.findPropertySetter(cls, name, false, true);
@@ -183,10 +183,10 @@ public class OgnlPropertyReference extends TapestryReferenceBase {
                     result.putIfAbsent(m.getName(), LookupElementBuilder.create(m, m.getName()).withIcon(PlatformIcons.METHOD_ICON));
                     continue;
                 }
-                if (!PropertyUtilBase.isSimplePropertyAccessor(m)) continue;
-                final String property = PropertyUtilBase.getPropertyName(m);
+                final String property = JavaClasses.propertyName(m);
                 if (property == null || "class".equals(property)) continue;
-                final PsiType type = q.substitutor().substitute(PropertyUtilBase.getPropertyType(m));
+                final PsiType propertyType = PropertyUtilBase.isSimplePropertyAccessor(m) ? PropertyUtilBase.getPropertyType(m) : m.getReturnType();
+                final PsiType type = q.substitutor().substitute(propertyType);
                 result.putIfAbsent(property, LookupElementBuilder.create(m, property).withIcon(PlatformIcons.PROPERTY_ICON)
                         .withTypeText(type != null ? type.getPresentableText() : "", true));
             }
@@ -203,7 +203,7 @@ public class OgnlPropertyReference extends TapestryReferenceBase {
     @Override
     public PsiElement handleElementRename(@NotNull String newElementName) throws IncorrectOperationException {
         final PsiElement target = resolve();
-        if (!methodCall && target instanceof final PsiMethod method && PropertyUtilBase.isSimplePropertyAccessor(method)) {
+        if (!methodCall && target instanceof final PsiMethod method && JavaClasses.propertyName(method) != null) {
             final String property = PropertyUtilBase.getPropertyName(newElementName);
             if (property != null) return super.handleElementRename(property);
         }

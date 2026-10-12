@@ -5,8 +5,8 @@ import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.*;
 import com.intellij.psi.util.CachedValueProvider;
 import com.intellij.psi.util.CachedValuesManager;
-import com.intellij.psi.util.PropertyUtilBase;
-import com.intellij.psi.util.PsiModificationTracker;
+import com.intellij.psi.util.PsiTreeUtil;
+import com.intellij.util.ArrayUtil;
 import com.intellij.psi.xml.XmlAttribute;
 import com.intellij.psi.xml.XmlAttributeValue;
 import com.intellij.psi.xml.XmlFile;
@@ -31,6 +31,15 @@ public class ComponentModel {
 
     /** Komponenten aus {@code <component>} der Spezifikation und {@code @Component} der Klasse (Spezifikation gewinnt). */
     public static @NotNull List<DeclaredComponent> getDeclaredComponents(@NotNull TapestryContext ctx) {
+        // Kontexte mit derselben Spezifikation (bzw. demselben Template/derselben Klasse) sind gleich
+        final PsiElement owner = ctx.owner() != null ? ctx.owner() : ctx.declaredClass();
+        if (owner == null) return List.of();
+        return CachedValuesManager.getCachedValue(owner, () -> CachedValueProvider.Result.create(
+                computeDeclaredComponents(TapestryModel.getContextOf(owner)),
+                TapestryModificationTracker.dependenciesWithJava(owner.getProject())));
+    }
+
+    private static List<DeclaredComponent> computeDeclaredComponents(TapestryContext ctx) {
         final List<DeclaredComponent> result = new ArrayList<>();
         final Set<String> seen = new HashSet<>();
         final XmlTag root = SpecXml.rootTag(ctx.spec());
@@ -67,7 +76,7 @@ public class ComponentModel {
         final PsiAnnotation annotation = method.getModifierList().findAnnotation(ANNOTATION_COMPONENT);
         if (annotation == null) return null;
         final String explicitId = annotationString(annotation, "id");
-        final String id = explicitId != null ? explicitId : PropertyUtilBase.getPropertyName(method);
+        final String id = explicitId != null ? explicitId : JavaClasses.propertyName(method);
         if (id == null) return null;
         // bindings = {"value=ognl:foo", ...}
         final Set<String> bound = new HashSet<>();
@@ -76,7 +85,47 @@ public class ComponentModel {
                 bound.add(normalize(StringUtils.substringBefore(binding, "=")));
             }
         }
-        return new DeclaredComponent(id, annotationString(annotation, "type"), annotationString(annotation, "copyOf"), method, bound);
+        final String copyOf = annotationString(annotation, "copyOf");
+        final String explicitType = annotationString(annotation, "type");
+        // Annotations-Referenz: type ist standardmäßig der Rückgabetyp (z.B. "TextField getName()" → TextField)
+        final String type = explicitType == null && copyOf == null && method.getReturnType() instanceof final PsiClassType returnType
+                ? returnType.getClassName() : explicitType;
+        return new DeclaredComponent(id, type, copyOf, method, bound);
+    }
+
+    /**
+     * Im Template mit {@code jwcid="id@Type"} deklarierte Komponenten (id → Wert des jwcid-Attributs). Wie die in
+     * Spezifikation oder Klasse deklarierten sind sie eingebettete Komponenten und über {@code component:},
+     * {@code clientId:} und {@code @InjectComponent} erreichbar.
+     */
+    public static @NotNull Map<String, XmlAttributeValue> getTemplateComponents(@Nullable PsiFile template) {
+        return template instanceof final XmlFile xml ? templateIds(xml).implicitDeclarations() : Map.of();
+    }
+
+    /** Wie oft kommt die Komponenten-id ({@code "foo"} oder {@code "foo@Insert"}) im Template vor? */
+    public static int countComponentId(@NotNull XmlFile template, @NotNull String id) {
+        return templateIds(template).counts().getOrDefault(id, 0);
+    }
+
+    /** Komponenten-ids eines Templates: Anzahl je id und die mit {@code jwcid="id@Type"} deklarierten. */
+    private record TemplateIds(Map<String, Integer> counts, Map<String, XmlAttributeValue> implicitDeclarations) {
+    }
+
+    private static TemplateIds templateIds(XmlFile template) {
+        return CachedValuesManager.getCachedValue(template, () -> {
+            final Map<String, Integer> counts = new HashMap<>();
+            final Map<String, XmlAttributeValue> declarations = new LinkedHashMap<>();
+            for (final XmlTag tag : PsiTreeUtil.findChildrenOfType(template, XmlTag.class)) {
+                final XmlAttributeValue value = TapestryConfiguration.findJwcidValueElement(tag);
+                final Jwcid jwcid = value != null ? Jwcid.parse(value.getValue()) : null;
+                if (jwcid == null || jwcid.id() == null) continue;
+                counts.merge(jwcid.id(), 1, Integer::sum);
+                if (jwcid.isImplicit()) declarations.putIfAbsent(jwcid.id(), value);
+            }
+            // auch von der Konfiguration abhängig: der Name des jwcid-Attributs
+            return CachedValueProvider.Result.create(new TemplateIds(counts, declarations),
+                    ArrayUtil.append(TapestryModificationTracker.dependenciesWithJava(template.getProject()), template));
+        });
     }
 
     public static @Nullable DeclaredComponent findDeclaredComponent(@NotNull TapestryContext ctx, @NotNull String id) {
@@ -138,7 +187,7 @@ public class ComponentModel {
     public static @NotNull List<ComponentParameter> getParameters(@NotNull PsiFile componentSpec) {
         if (!(componentSpec instanceof final XmlFile xml)) return List.of();
         return CachedValuesManager.getCachedValue(xml, () ->
-                CachedValueProvider.Result.create(computeParameters(xml), PsiModificationTracker.MODIFICATION_COUNT));
+                CachedValueProvider.Result.create(computeParameters(xml), TapestryModificationTracker.dependenciesWithJava(xml.getProject())));
     }
 
     private static List<ComponentParameter> computeParameters(XmlFile spec) {
@@ -162,7 +211,7 @@ public class ComponentModel {
                 final PsiAnnotation annotation = method.getModifierList().findAnnotation(ANNOTATION_PARAMETER);
                 if (annotation == null) continue;
                 final String explicitName = annotationString(annotation, "name");
-                final String name = explicitName != null ? explicitName : PropertyUtilBase.getPropertyName(method);
+                final String name = explicitName != null ? explicitName : JavaClasses.propertyName(method);
                 if (name == null || !names.add(name)) continue;
                 result.add(new ComponentParameter(name, Boolean.TRUE.equals(AnnotationUtil.getBooleanAttributeValue(annotation, "required")),
                         SpecXml.splitList(AnnotationUtil.getStringAttributeValue(annotation, "aliases")),
@@ -274,7 +323,7 @@ public class ComponentModel {
         final Map<String, PsiMethod> result = new LinkedHashMap<>();
         for (final PsiMethod method : cls.getAllMethods()) {
             if (method.getModifierList().findAnnotation(annotation) == null) continue;
-            final String property = PropertyUtilBase.getPropertyName(method);
+            final String property = JavaClasses.propertyName(method);
             if (property != null) result.putIfAbsent(property, method);
         }
         return result;

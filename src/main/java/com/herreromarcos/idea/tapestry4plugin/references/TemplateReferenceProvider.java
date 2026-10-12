@@ -67,6 +67,6 @@ class TemplateReferenceProvider extends PsiReferenceProvider {
             // "id@Type" deklariert die id selbst – nur der Typ ist eine Referenz
             return single(new ComponentTypeReference(value, jwcid.typeRange().shiftRight(offset)));
         }
-        return single(new ComponentIdReference(value, jwcid.idRange().shiftRight(offset), true));
+        return single(new ComponentIdReference(value, jwcid.idRange().shiftRight(offset), ComponentIdReference.Scope.JWCID));
     }
 }

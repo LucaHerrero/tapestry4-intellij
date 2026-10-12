@@ -26,6 +26,11 @@ public record TapestryContext(@Nullable PsiFile template,
         return new TapestryContext(null, null, null, null, SpecKind.PAGE);
     }
 
+    /** Die Datei, die die Seite/Komponente ausmacht: die Spezifikation, bei spezifikationslosen Seiten das Template. */
+    public @Nullable PsiFile owner() {
+        return spec != null ? spec : template;
+    }
+
     /** Sind überhaupt Informationen vorhanden, gegen die geprüft werden kann? */
     public boolean isKnown() {
         return spec != null || declaredClass != null;

@@ -19,10 +19,12 @@ import static com.herreromarcos.idea.tapestry4plugin.references.TapestryReferenc
  * Referenzen in String-Werten der Tapestry-Annotationen (Annotations-Referenz):
  * <ul>
  *   <li>{@code @InjectPage("Details")} → Seite</li>
- *   <li>{@code @InjectComponent("inputUserName")}, {@code @Component(copyOf = "...")} → deklarierte Komponente</li>
+ *   <li>{@code @InjectComponent("inputUserName")}, {@code @EventListener(targets/submitForm)} → eingebettete Komponente,
+ *       {@code @Component(copyOf = "...")} → deklarierte Komponente</li>
  *   <li>{@code @Component(type = "TextField")} → Komponententyp, {@code bindings = {"value=ognl:x"}} → Binding-Ausdruck</li>
  *   <li>{@code @InjectAsset("stylesheet")} → Asset, {@code @Message("page-title")} → Message-Key</li>
  *   <li>{@code @InjectState("visit")}, {@code @InjectStateFlag("visit")} → Application State Object</li>
+ *   <li>{@code @InjectMeta("page-size")} → Meta-Schlüssel</li>
  *   <li>{@code @InitialValue("request.serverName")} → Binding-Ausdruck (Standard OGNL)</li>
  *   <li>{@code @InjectScript("x.script")}, {@code @Asset("/style.css")} → Datei relativ zu Spezifikation bzw. Template</li>
  * </ul>
@@ -45,12 +47,15 @@ class AnnotationReferenceProvider extends PsiReferenceProvider {
         final int offset = range.getStartOffset();
         return switch ("%s#%s".formatted(StringUtil.trimStart(qualifiedName, ANNOTATIONS), attribute)) {
             case "InjectPage#value" -> single(new PageReference(literal, range));
-            case "InjectComponent#value", "Component#copyOf" -> single(new ComponentIdReference(literal, range, false));
+            case "InjectComponent#value", "EventListener#targets", "EventListener#submitForm" ->
+                    single(new ComponentIdReference(literal, range, ComponentIdReference.Scope.NESTED));
+            case "Component#copyOf" -> single(new ComponentIdReference(literal, range, ComponentIdReference.Scope.COPY_OF));
             case "Component#type" -> single(new ComponentTypeReference(literal, range));
             case "Component#bindings" -> componentBinding(literal, text, offset);
             case "InjectAsset#value" -> single(new SpecChildReference(literal, range, SpecChildReference.Kind.ASSET));
             case "Message#value" -> single(new MessageKeyReference(literal, range));
             case "InjectState#value", "InjectStateFlag#value" -> single(new StateObjectReference(literal, range));
+            case "InjectMeta#value" -> single(new MetaKeyReference(literal, range));
             case "InitialValue#value" -> BindingReferences.create(literal, text, offset, defaultPrefix(literal));
             case "InjectScript#value", "Asset#value" -> SpecPathReferences.create(literal, text, offset, true, baseFile(literal));
             default -> PsiReference.EMPTY_ARRAY;
@@ -73,7 +78,7 @@ class AnnotationReferenceProvider extends PsiReferenceProvider {
     /** Pfade sind relativ zur Spezifikation, ohne Spezifikation relativ zum Template. */
     private static @Nullable VirtualFile baseFile(PsiElement element) {
         final TapestryContext ctx = context(element);
-        final PsiFile owner = ctx == null ? null : ctx.spec() != null ? ctx.spec() : ctx.template();
+        final PsiFile owner = ctx != null ? ctx.owner() : null;
         return owner != null ? owner.getOriginalFile().getVirtualFile() : null;
     }
 

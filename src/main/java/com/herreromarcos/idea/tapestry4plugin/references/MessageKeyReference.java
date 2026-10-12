@@ -1,8 +1,12 @@
 package com.herreromarcos.idea.tapestry4plugin.references;
 
 import com.herreromarcos.idea.tapestry4plugin.TapestryConstants;
+import com.herreromarcos.idea.tapestry4plugin.model.TapestryConfiguration;
 import com.herreromarcos.idea.tapestry4plugin.model.TapestryContext;
+import com.herreromarcos.idea.tapestry4plugin.model.TapestryModel;
+import com.herreromarcos.idea.tapestry4plugin.model.TapestryModificationTracker;
 import com.herreromarcos.idea.tapestry4plugin.model.TapestryPaths;
+import com.herreromarcos.idea.tapestry4plugin.model.TapestryRegistry;
 import com.herreromarcos.idea.tapestry4plugin.model.WebXml;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
@@ -16,6 +20,9 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
 import com.intellij.psi.search.FilenameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
+import com.intellij.psi.util.CachedValueProvider;
+import com.intellij.psi.util.CachedValuesManager;
+import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.util.PlatformIcons;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -27,7 +34,8 @@ import java.util.regex.Pattern;
  * {@code message:key} bzw. {@code <span key="...">} → Eintrag im Message-Katalog (User's Guide, "Localization"):
  * <ul>
  *   <li>Katalog der Seite/Komponente: {@code <Name>.properties} (+ Locale-Varianten) neben Spezifikation/Template</li>
- *   <li>Namespace-Katalog: {@code <app>.properties} neben der .application, sowie
+ *   <li>Namespace-Katalog: {@code <app>.properties} neben der .application (Basisname per
+ *       {@code namespace-properties-name} änderbar), sowie
  *       {@code WEB-INF/<servlet-name>.properties} – auch ohne .application, sowie {@code <lib>.properties} einer Bibliothek</li>
  * </ul>
  */
@@ -37,62 +45,83 @@ public class MessageKeyReference extends TapestryReferenceBase implements PsiPol
         super(element, range);
     }
 
-    /** Alle Kataloge in Suchreihenfolge: Seite/Komponente, Anwendung, Bibliothek, Servlet. */
+    /**
+     * Alle Kataloge in Suchreihenfolge: Seite/Komponente, Anwendung, Bibliothek, Servlet. Gecacht je Datei bzw.
+     * Klasse (bei Annotationen); neue oder gelöschte .properties-Dateien zählen als Strukturänderung.
+     */
     private List<PropertiesFile> catalogs() {
-        final TapestryContext ctx = context();
+        final PsiFile file = getElement().getContainingFile().getOriginalFile();
+        final PsiClass psiClass = file instanceof PsiJavaFile ? PsiTreeUtil.getParentOfType(getElement(), PsiClass.class) : null;
+        return catalogs(psiClass != null ? psiClass : file);
+    }
+
+    /** Kataloge einer Seiten-/Komponentenklasse oder eines Templates bzw. einer Spezifikation. */
+    public static @NotNull List<PropertiesFile> catalogs(@NotNull PsiElement owner) {
+        return CachedValuesManager.getCachedValue(owner, () -> CachedValueProvider.Result.create(
+                computeCatalogs(owner), TapestryModificationTracker.dependenciesWithJava(owner.getProject())));
+    }
+
+    /** Ist der Schlüssel in einem der Kataloge definiert? */
+    public static boolean containsKey(@NotNull List<PropertiesFile> catalogs, @NotNull String key) {
+        return catalogs.stream().anyMatch(pf -> pf.findPropertyByKey(key) != null);
+    }
+
+    private static List<PropertiesFile> computeCatalogs(PsiElement owner) {
+        final TapestryContext ctx = TapestryModel.getContextOf(owner);
+        final PsiManager manager = owner.getManager();
         final List<PropertiesFile> result = new ArrayList<>();
         final Set<VirtualFile> seen = new HashSet<>();
-        for (final PsiFile owner : Arrays.asList(ctx.spec(), ctx.template())) {
-            final VirtualFile vf = owner != null ? owner.getOriginalFile().getVirtualFile() : null;
-            if (vf != null) collect(vf.getParent(), TapestryPaths.stripLocale(vf.getNameWithoutExtension()), result, seen);
+        for (final PsiFile specOrTemplate : Arrays.asList(ctx.spec(), ctx.template())) {
+            final VirtualFile vf = specOrTemplate != null ? specOrTemplate.getOriginalFile().getVirtualFile() : null;
+            if (vf != null) collect(manager, vf.getParent(), TapestryPaths.stripLocale(vf.getNameWithoutExtension()), result, seen);
         }
-        collectApplicationCatalogs(result, seen);
-        collectLibraryCatalogs(ctx, result, seen);
-        collectServletCatalogs(result, seen);
+        collectApplicationCatalogs(manager, result, seen);
+        collectLibraryCatalogs(manager, ctx, result, seen);
+        collectServletCatalogs(manager, owner.getContainingFile(), result, seen);
         return result;
     }
 
     /** {@code <app>.properties} neben jeder .application. */
-    private void collectApplicationCatalogs(List<PropertiesFile> result, Set<VirtualFile> seen) {
-        final Project project = getElement().getProject();
-        for (final VirtualFile app : FilenameIndex.getAllFilesByExt(project, TapestryConstants.EXT_APPLICATION,
-                GlobalSearchScope.projectScope(project))) {
-            collect(app.getParent(), app.getNameWithoutExtension(), result, seen);
+    private static void collectApplicationCatalogs(PsiManager manager, List<PropertiesFile> result, Set<VirtualFile> seen) {
+        final Project project = manager.getProject();
+        for (final VirtualFile app : TapestryRegistry.findApplicationSpecs(project)) {
+            collect(manager, app.getParent(), TapestryConfiguration.getNamespaceCatalogName(project, app), result, seen);
         }
     }
 
     /** Namespace-Katalog einer Bibliothek: gilt für Seiten/Komponenten im Ordner der .library (und darunter). */
-    private void collectLibraryCatalogs(TapestryContext ctx, List<PropertiesFile> result, Set<VirtualFile> seen) {
-        final PsiFile owner = ctx.spec() != null ? ctx.spec() : ctx.template();
+    private static void collectLibraryCatalogs(PsiManager manager, TapestryContext ctx, List<PropertiesFile> result,
+                                               Set<VirtualFile> seen) {
+        final PsiFile owner = ctx.owner();
         final VirtualFile ownerFile = owner != null ? owner.getOriginalFile().getVirtualFile() : null;
         if (ownerFile == null) return;
-        final Project project = getElement().getProject();
+        final Project project = manager.getProject();
         for (final VirtualFile library : FilenameIndex.getAllFilesByExt(project, TapestryConstants.EXT_LIBRARY,
                 GlobalSearchScope.allScope(project))) {
             final VirtualFile folder = library.getParent();
             if (folder != null && VfsUtilCore.isAncestor(folder, ownerFile, true)) {
-                collect(folder, library.getNameWithoutExtension(), result, seen);
+                collect(manager, folder, TapestryConfiguration.getNamespaceCatalogName(project, library), result, seen);
             }
         }
     }
 
     /** {@code WEB-INF/<servlet-name>.properties} bzw. {@code WEB-INF/<servlet-name>/<servlet-name>.properties}. */
-    private void collectServletCatalogs(List<PropertiesFile> result, Set<VirtualFile> seen) {
-        final VirtualFile vf = getElement().getContainingFile().getOriginalFile().getVirtualFile();
+    private static void collectServletCatalogs(PsiManager manager, PsiFile file, List<PropertiesFile> result,
+                                               Set<VirtualFile> seen) {
+        final VirtualFile vf = file.getOriginalFile().getVirtualFile();
         final VirtualFile webRoot = vf != null ? TapestryPaths.webRoot(vf) : null;
         final VirtualFile webInf = webRoot != null ? webRoot.findChild(TapestryConstants.WEB_INF) : null;
         if (webInf == null) return;
-        for (final String servlet : WebXml.servletNames(getElement().getProject(), webInf)) {
-            collect(webInf, servlet, result, seen);
-            collect(webInf.findChild(servlet), servlet, result, seen);
+        for (final String servlet : WebXml.servletNames(manager.getProject(), webInf)) {
+            collect(manager, webInf, servlet, result, seen);
+            collect(manager, webInf.findChild(servlet), servlet, result, seen);
         }
     }
 
     /** Katalogdateien {@code base.properties} und {@code base_<locale>.properties} im Verzeichnis. */
-    private void collect(@Nullable VirtualFile dir, String base, List<PropertiesFile> result,
-                         Set<VirtualFile> seen) {
+    private static void collect(PsiManager manager, @Nullable VirtualFile dir, String base, List<PropertiesFile> result,
+                                Set<VirtualFile> seen) {
         if (dir == null || !dir.isDirectory()) return;
-        final PsiManager manager = getElement().getManager();
         final Pattern catalog = Pattern.compile(Pattern.quote(base) + TapestryPaths.LOCALE_SUFFIX + "?\\.properties");
         for (final VirtualFile child : dir.getChildren()) {
             if (!catalog.matcher(child.getName()).matches()) continue;

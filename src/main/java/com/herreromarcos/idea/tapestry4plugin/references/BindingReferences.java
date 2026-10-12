@@ -66,8 +66,9 @@ class BindingReferences {
             case PREFIX_MESSAGE -> new MessageKeyReference(element, range);
             case PREFIX_ASSET -> new SpecChildReference(element, range, SpecChildReference.Kind.ASSET);
             case PREFIX_BEAN -> new SpecChildReference(element, range, SpecChildReference.Kind.BEAN);
-            case PREFIX_COMPONENT -> new ComponentIdReference(element, range, false);
+            case PREFIX_COMPONENT, PREFIX_CLIENT_ID -> new ComponentIdReference(element, range, ComponentIdReference.Scope.NESTED);
             case PREFIX_STATE -> new StateObjectReference(element, range);
+            case PREFIX_META -> new MetaKeyReference(element, range);
             default -> null;
         };
         return single(reference);

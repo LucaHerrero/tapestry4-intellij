@@ -2,17 +2,14 @@ package com.herreromarcos.idea.tapestry4plugin.model;
 
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.roots.ProjectRootModificationTracker;
 import com.intellij.openapi.util.Key;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiClass;
+import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
-import com.intellij.psi.search.FilenameIndex;
-import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.util.CachedValue;
 import com.intellij.psi.util.CachedValueProvider;
 import com.intellij.psi.util.CachedValuesManager;
-import com.intellij.psi.util.PsiModificationTracker;
 import com.intellij.psi.xml.XmlAttribute;
 import com.intellij.psi.xml.XmlAttributeValue;
 import com.intellij.psi.xml.XmlFile;
@@ -62,8 +59,41 @@ public class TapestryConfiguration {
             final String classMeta = JavaClasses.metaAnnotationValue(cls, key);
             if (classMeta != null) return SpecXml.splitList(classMeta);
         }
-        final PsiFile owner = ctx.spec() != null ? ctx.spec() : ctx.template();
+        final PsiFile owner = ctx.owner();
         return owner != null ? getNamespaceMeta(owner, key) : List.of();
+    }
+
+    /**
+     * Deklarationen der Meta-Schlüssel, die eine Seite/Komponente sieht, in Suchreihenfolge: {@code <meta key>} der
+     * Spezifikation, {@code @Meta} der Klasse (Unterklasse vor Basisklasse), {@code <meta key>} der .library bzw.
+     * der .application. Globale Quellen fehlen – web.xml, Symbole und JVM-Properties deklarieren keine Elemente.
+     */
+    public static @NotNull Map<String, PsiElement> findMetaDeclarations(@NotNull TapestryContext ctx) {
+        final Map<String, PsiElement> result = new LinkedHashMap<>();
+        collectMetaKeys(SpecXml.rootTag(ctx.spec()), result);
+        final Set<PsiClass> visited = new HashSet<>();
+        for (PsiClass cls = ctx.declaredClass(); cls != null && visited.add(cls); cls = cls.getSuperClass()) {
+            JavaClasses.metaAnnotationEntries(cls).forEach(result::putIfAbsent);
+        }
+        final PsiFile owner = ctx.owner();
+        final VirtualFile vf = owner != null ? owner.getOriginalFile().getVirtualFile() : null;
+        if (vf == null) return result;
+        final Project project = owner.getProject();
+        final VirtualFile library = TapestryRegistry.findLibrary(project, vf);
+        final Collection<VirtualFile> namespaceSpecs = library != null ? List.of(library) : TapestryRegistry.findApplicationSpecs(project);
+        for (final VirtualFile spec : namespaceSpecs) {
+            collectMetaKeys(SpecXml.rootTag(project, spec), result);
+        }
+        return result;
+    }
+
+    private static void collectMetaKeys(@Nullable XmlTag root, Map<String, PsiElement> out) {
+        if (root == null) return;
+        for (final XmlTag tag : root.findSubTags(TAG_META)) {
+            final XmlAttribute key = tag.getAttribute(ATTR_KEY);
+            final XmlAttributeValue value = key != null ? key.getValueElement() : null;
+            if (value != null && !value.getValue().isBlank()) out.putIfAbsent(value.getValue().trim(), value);
+        }
     }
 
     /** Meta-Wert mit Fallback, falls nicht oder leer konfiguriert. */
@@ -78,18 +108,26 @@ public class TapestryConfiguration {
      * sonst der globale Wert. Ohne Zugriff auf Klasse oder Kontext, daher auch während der Kontextberechnung nutzbar.
      */
     public static @NotNull List<String> getNamespaceMeta(@NotNull PsiFile owner, @NotNull String key) {
+        final List<String> namespaceValues = getNamespaceSpecMeta(owner, key);
+        return !namespaceValues.isEmpty() ? namespaceValues : getGlobalProperties(owner.getProject()).getOrDefault(key, List.of());
+    }
+
+    /**
+     * Nur das {@code <meta>} der .library bzw. .application, ohne globale Quellen. So suchen laut "Configuring
+     * Tapestry" {@code page-class-packages} und {@code component-class-packages} ("must be declared as meta tags
+     * in the containing application or library specification") sowie {@code template-extension}.
+     */
+    public static @NotNull List<String> getNamespaceSpecMeta(@NotNull PsiFile owner, @NotNull String key) {
         final Project project = owner.getProject();
         final VirtualFile vf = owner.getOriginalFile().getVirtualFile();
         final VirtualFile library = vf != null ? TapestryRegistry.findLibrary(project, vf) : null;
-        final List<String> namespaceValues = library != null ? readMeta(project, library).getOrDefault(key, List.of())
+        return library != null ? readMeta(project, library).getOrDefault(key, List.of())
                 : getApplicationMeta(project).getOrDefault(key, List.of());
-        return !namespaceValues.isEmpty() ? namespaceValues : getGlobalProperties(project).getOrDefault(key, List.of());
     }
 
-    /** Projektweiter Wert ohne Bezug zu einer Seite: .application, sonst global. */
-    public static @NotNull List<String> getProjectMeta(@NotNull Project project, @NotNull String key) {
-        final List<String> applicationValues = getApplicationMeta(project).getOrDefault(key, List.of());
-        return !applicationValues.isEmpty() ? applicationValues : getGlobalProperties(project).getOrDefault(key, List.of());
+    /** {@code <meta>} der .application-Dateien, ohne globale Quellen. */
+    public static @NotNull List<String> getApplicationSpecMeta(@NotNull Project project, @NotNull String key) {
+        return getApplicationMeta(project).getOrDefault(key, List.of());
     }
 
     /** meta-Werte aller .application-Dateien (z.B. org.apache.tapestry.page-class-packages), kommasepariert aufgeteilt. */
@@ -99,10 +137,19 @@ public class TapestryConfiguration {
 
     private static Map<String, List<String>> computeApplicationMeta(Project project) {
         final Map<String, List<String>> meta = new HashMap<>();
-        for (final VirtualFile app : FilenameIndex.getAllFilesByExt(project, EXT_APPLICATION, GlobalSearchScope.projectScope(project))) {
+        for (final VirtualFile app : TapestryRegistry.findApplicationSpecs(project)) {
             readMeta(project, app).forEach((key, values) -> meta.computeIfAbsent(key, k -> new ArrayList<>()).addAll(values));
         }
         return meta;
+    }
+
+    /**
+     * Basisname des Namespace-Katalogs einer .application/.library: {@code org.apache.tapestry.namespace-properties-name}
+     * aus deren {@code <meta>}, sonst der Dateiname ("Configuring Tapestry").
+     */
+    public static @NotNull String getNamespaceCatalogName(@NotNull Project project, @NotNull VirtualFile specFile) {
+        final String configured = ContainerUtil.getFirstItem(readMeta(project, specFile).get(META_NAMESPACE_PROPERTIES_NAME));
+        return configured != null && !configured.isBlank() ? configured.trim() : specFile.getNameWithoutExtension();
     }
 
     /** {@code <meta key value>} bzw. {@code <meta key>Wert</meta>} einer .application/.library. */
@@ -162,7 +209,7 @@ public class TapestryConfiguration {
         if (DumbService.isDumb(file.getProject())) return JWCID;
         return CachedValuesManager.getCachedValue(file, () -> CachedValueProvider.Result.create(
                 findMetaOrDefault(TapestryModel.getContext(file), META_JWCID_ATTRIBUTE, JWCID),
-                PsiModificationTracker.MODIFICATION_COUNT, ProjectRootModificationTracker.getInstance(file.getProject())));
+                TapestryModificationTracker.dependenciesWithJava(file.getProject())));
     }
 
     /** Das Komponenten-Attribut ({@code jwcid} bzw. konfigurierter Name) eines Template-Tags. */
@@ -200,13 +247,14 @@ public class TapestryConfiguration {
 
     /**
      * Template-Endung einer Spezifikation: {@code org.apache.tapestry.template-extension} aus der Spezifikation,
-     * sonst aus dem Namespace bzw. global, sonst "html". {@code @Meta} der Klasse bleibt hier außen vor, weil die
-     * Klasse erst über den Kontext (und damit über das Template) bestimmt wird.
+     * sonst aus .library bzw. .application, sonst "html" – laut "Configuring Tapestry" ausdrücklich ohne den
+     * üblichen Suchpfad (web.xml, Symbole). {@code @Meta} der Klasse bleibt außen vor, weil die Klasse erst über
+     * den Kontext (und damit über das Template) bestimmt wird.
      */
     public static @NotNull String getTemplateExtension(@NotNull XmlFile spec) {
         final String specMeta = SpecXml.meta(spec.getRootTag(), META_TEMPLATE_EXTENSION);
         if (specMeta != null && !specMeta.isBlank()) return specMeta.trim();
-        final List<String> configured = getNamespaceMeta(spec, META_TEMPLATE_EXTENSION);
+        final List<String> configured = getNamespaceSpecMeta(spec, META_TEMPLATE_EXTENSION);
         return configured.isEmpty() ? TEMPLATE_EXT : configured.getFirst();
     }
 
@@ -214,7 +262,7 @@ public class TapestryConfiguration {
     public static @NotNull Set<String> getTemplateExtensions(@NotNull Project project) {
         final Set<String> result = new LinkedHashSet<>();
         result.add(TEMPLATE_EXT);
-        result.addAll(getProjectMeta(project, META_TEMPLATE_EXTENSION));
+        result.addAll(getApplicationSpecMeta(project, META_TEMPLATE_EXTENSION));
         return result;
     }
 }

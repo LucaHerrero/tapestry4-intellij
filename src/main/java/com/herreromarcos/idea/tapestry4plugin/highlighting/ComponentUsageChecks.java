@@ -14,14 +14,17 @@ import java.util.regex.Pattern;
 
 /** Regeln, die für Komponenten in Templates und Spezifikationen gleichermaßen gelten. */
 class ComponentUsageChecks {
-    /** Komponenten-ids müssen gültige Java-Bezeichner sein (Spezifikations-Doku, {@code <component id>}). */
-    private static final Pattern COMPONENT_ID = Pattern.compile("_?[a-zA-Z]\\w*");
+    /**
+     * Komponenten-ids sowie Parameter-, Bean- und Asset-Namen müssen gültige Java-Bezeichner sein
+     * (Spezifikations-Doku); Tapestrys SpecificationParser prüft sie mit diesem Muster.
+     */
+    static final Pattern IDENTIFIER = Pattern.compile("_?[a-zA-Z]\\w*");
 
     private ComponentUsageChecks() {
     }
 
     static void checkComponentId(AnnotationHolder holder, String id) {
-        if (!COMPONENT_ID.matcher(id).matches()) {
+        if (!IDENTIFIER.matcher(id).matches()) {
             holder.newAnnotation(HighlightSeverity.ERROR, "Invalid component id '%s': must be a Java identifier".formatted(id)).create();
         }
     }

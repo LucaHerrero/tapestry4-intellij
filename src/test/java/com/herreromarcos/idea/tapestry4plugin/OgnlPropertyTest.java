@@ -66,6 +66,54 @@ public class OgnlPropertyTest extends TapestryTestCase {
         assertFalse(warnings.toString(), warnings.stream().anyMatch(m -> m.contains("'selection'")));
     }
 
+    /** OGNL 2.6.9 nimmt {@code isX()} ohne Parameter unabhängig vom Rückgabetyp, also auch {@code Boolean}. */
+    public void testBooleanGetters() {
+        myFixture.addFileToProject("com/example/Flags.java", """
+                package com.example;
+                public abstract class Flags {
+                    public abstract boolean isExpanded();
+                    public abstract Boolean isWrapped();
+                    public abstract Boolean getBoxed();
+                }
+                """);
+        myFixture.addFileToProject("Flags.page", page("<page-specification class=\"com.example.Flags\"/>"));
+        configure("Flags.html", """
+                <html><body>
+                  <span jwcid="@Insert" value="ognl:expanded"/>
+                  <span jwcid="@Insert" value="ognl:!wra<caret>pped"/>
+                  <span jwcid="@Insert" value="ognl:boxed ? 1 : 2"/>
+                </body></html>
+                """);
+        final PsiElement target = resolveAtCaret();
+        assertInstanceOf(target, PsiMethod.class);
+        assertEquals("isWrapped", ((PsiMethod) target).getName());
+        assertEmpty(highlightingMessages(HighlightSeverity.WEAK_WARNING));
+    }
+
+    public void testBooleanGetterCompletion() {
+        myFixture.addFileToProject("com/example/Flags.java", """
+                package com.example;
+                public abstract class Flags {
+                    public abstract boolean isExpanded();
+                    public abstract Boolean isWrapped();
+                }
+                """);
+        myFixture.addFileToProject("Flags.page", page("<page-specification class=\"com.example.Flags\"/>"));
+        configure("Flags.html", "<html><body><span jwcid=\"@Insert\" value=\"ognl:<caret>\"/></body></html>");
+        assertContainsElements(completeAtCaret(), "expanded", "wrapped");
+    }
+
+    public void testRenameBooleanWrapperGetterUpdatesOgnl() {
+        myFixture.addFileToProject("com/example/Flags.java", """
+                package com.example;
+                public abstract class Flags { public abstract Boolean isWrapped(); }
+                """);
+        myFixture.addFileToProject("Flags.page", page("<page-specification class=\"com.example.Flags\"/>"));
+        configure("Flags.html", "<html><body><span jwcid=\"@Insert\" value=\"ognl:wrapped\"/></body></html>");
+        myFixture.renameElement(myFixture.findClass("com.example.Flags").findMethodsByName("isWrapped", false)[0], "isFolded");
+        assertTrue(myFixture.getEditor().getDocument().getText().contains("ognl:folded"));
+    }
+
     public void testUnknownPropertyIsStillReported() {
         myFixture.addFileToProject("Widget.jwc", WIDGET_SPEC);
         final List<String> warnings = warnings("Widget.html",

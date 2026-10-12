@@ -87,6 +87,7 @@ public class TapestryConstants {
     public static final String META_DEFAULT_BINDING_PREFIX = "org.apache.tapestry.default-binding-prefix";
     public static final String META_JWCID_ATTRIBUTE = "org.apache.tapestry.jwcid-attribute-name";
     public static final String META_TEMPLATE_EXTENSION = "org.apache.tapestry.template-extension";
+    public static final String META_NAMESPACE_PROPERTIES_NAME = "org.apache.tapestry.namespace-properties-name";
 
     public static final String DEFAULT_PAGE_CLASS = "org.apache.tapestry.html.BasePage";
     public static final String DEFAULT_COMPONENT_CLASS = "org.apache.tapestry.BaseComponent";
@@ -106,8 +107,10 @@ public class TapestryConstants {
     public static final String PREFIX_ASSET = "asset";
     public static final String PREFIX_BEAN = "bean";
     public static final String PREFIX_COMPONENT = "component";
+    public static final String PREFIX_CLIENT_ID = "clientId";
     public static final String PREFIX_VALIDATORS = "validators";
     public static final String PREFIX_STATE = "state";
+    public static final String PREFIX_META = "meta";
     /** Gehört zum HiveMind-Plugin; hier nur ausgenommen. */
     public static final String PREFIX_HIVEMIND = "hivemind";
 
@@ -116,8 +119,8 @@ public class TapestryConstants {
      * Projekte können eigene Präfixe beitragen (tapestry.bindings.BindingFactories), siehe {@code BindingPrefixes}.
      */
     public static final List<String> BINDING_PREFIXES = List.of(
-            "asset", "bean", "clientId", "component", "hivemind", "listener", "literal", "message", "meta",
-            "ognl", "state", "translator", "validator", "validators");
+            PREFIX_ASSET, PREFIX_BEAN, PREFIX_CLIENT_ID, PREFIX_COMPONENT, PREFIX_HIVEMIND, PREFIX_LISTENER, PREFIX_LITERAL,
+            PREFIX_MESSAGE, PREFIX_META, PREFIX_OGNL, PREFIX_STATE, "translator", "validator", PREFIX_VALIDATORS);
 
     /** Boolesche Werte laut Spezifikations-Doku ("Boolean type values"). */
     public static final Set<String> TRUE_VALUES = Set.of("true", "yes", "on", "1", "t", "y", "aye");

@@ -9,7 +9,6 @@ import com.intellij.openapi.roots.ProjectFileIndex;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
-import com.intellij.psi.util.PropertyUtilBase;
 import com.intellij.util.PlatformIcons;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -43,7 +42,7 @@ public class ListenerReference extends TapestryReferenceBase {
         final Map<String, LookupElement> result = new LinkedHashMap<>();
         for (final PsiMethod m : cls.getAllMethods()) {
             if (!isListenerCandidate(m)) continue;
-            if (PropertyUtilBase.isSimplePropertyAccessor(m)) continue;
+            if (JavaClasses.propertyName(m) != null) continue;
             final PsiClass owner = m.getContainingClass();
             final PsiFile ownerFile = owner != null ? owner.getContainingFile() : null;
             final VirtualFile vf = ownerFile != null ? ownerFile.getVirtualFile() : null;

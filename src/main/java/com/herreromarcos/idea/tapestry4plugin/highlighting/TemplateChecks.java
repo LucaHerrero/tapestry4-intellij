@@ -11,17 +11,12 @@ import com.herreromarcos.idea.tapestry4plugin.model.TapestryModel;
 import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
-import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.psi.xml.XmlAttribute;
 import com.intellij.psi.xml.XmlAttributeValue;
 import com.intellij.psi.xml.XmlFile;
 import com.intellij.psi.xml.XmlTag;
 
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 import static com.herreromarcos.idea.tapestry4plugin.TapestryConstants.REMOVE_ID;
@@ -56,22 +51,9 @@ class TemplateChecks {
         final String id = Jwcid.parse(value.getValue()).id();
         if (id == null) return;
         ComponentUsageChecks.checkComponentId(holder, id);
-        if (idCounts((XmlFile) value.getContainingFile()).getOrDefault(id, 0) > 1) {
+        if (ComponentModel.countComponentId((XmlFile) value.getContainingFile(), id) > 1) {
             holder.newAnnotation(HighlightSeverity.ERROR, "Duplicate component id '%s' in template".formatted(id)).create();
         }
-    }
-
-    /** Wie oft kommt jede Komponenten-id ("foo", "foo@Insert") im Template vor? */
-    private static Map<String, Integer> idCounts(XmlFile file) {
-        return CachedValuesManager.getCachedValue(file, () -> {
-            final Map<String, Integer> counts = new HashMap<>();
-            for (final XmlTag tag : PsiTreeUtil.findChildrenOfType(file, XmlTag.class)) {
-                final String value = TapestryConfiguration.findJwcidValue(tag);
-                final String id = value != null ? Jwcid.parse(value).id() : null;
-                if (id != null) counts.merge(id, 1, Integer::sum);
-            }
-            return CachedValueProvider.Result.create(counts, file);
-        });
     }
 
     /**

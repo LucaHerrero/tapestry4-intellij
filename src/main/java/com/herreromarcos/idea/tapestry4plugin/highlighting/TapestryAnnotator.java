@@ -20,7 +20,8 @@ import org.jetbrains.annotations.NotNull;
  * Prüft Templates, Spezifikationen und Annotationen:
  * <ul>
  *   <li>unaufgelöste Tapestry-Referenzen (Komponenten-ids/-typen, Listener, OGNL, Message-Keys, Assets, Beans)</li>
- *   <li>Template-Regeln ({@link TemplateChecks}) und Spezifikations-Regeln ({@link SpecificationChecks})</li>
+ *   <li>Template-Regeln ({@link TemplateChecks}), Spezifikations-Regeln ({@link SpecificationChecks}) und
+ *       Annotationen ohne Wert ({@link AnnotationChecks})</li>
  *   <li>hebt Binding-Präfixe ({@code ognl:}, {@code listener:} …) farblich hervor</li>
  * </ul>
  */
@@ -28,13 +29,23 @@ public class TapestryAnnotator implements Annotator {
 
     @Override
     public void annotate(@NotNull PsiElement element, @NotNull AnnotationHolder holder) {
-        if (element instanceof final XmlTag tag) {
-            if (TapestryFiles.isTemplateFile(tag.getContainingFile())) TemplateChecks.checkTag(tag, holder);
-            return;
-        }
-        if (element instanceof PsiLiteralExpression && element.getContainingFile() instanceof PsiJavaFile) {
-            reportUnresolvedReferences(element, holder);
-            return;
+        switch (element) {
+            case final XmlTag tag -> {
+                final PsiFile file = tag.getContainingFile();
+                if (TapestryFiles.isTemplateFile(file)) TemplateChecks.checkTag(tag, holder);
+                else if (TapestryFiles.isSpecFile(file)) SpecificationChecks.checkTag(tag, holder);
+                return;
+            }
+            case final PsiAnnotation annotation -> {
+                AnnotationChecks.checkAnnotation(annotation, holder);
+                return;
+            }
+            case PsiLiteralExpression psiLiteralExpression when element.getContainingFile() instanceof PsiJavaFile -> {
+                reportUnresolvedReferences(element, holder);
+                return;
+            }
+            default -> {
+            }
         }
         if (!(element instanceof final XmlAttributeValue value) || !(value.getParent() instanceof final XmlAttribute attribute)) return;
 

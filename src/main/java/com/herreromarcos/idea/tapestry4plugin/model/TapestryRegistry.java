@@ -216,6 +216,11 @@ public class TapestryRegistry {
         void accept(String key, VirtualFile target);
     }
 
+    /** Alle .application-Dateien des Projekts. */
+    public static @NotNull Collection<VirtualFile> findApplicationSpecs(@NotNull Project project) {
+        return FilenameIndex.getAllFilesByExt(project, EXT_APPLICATION, GlobalSearchScope.projectScope(project));
+    }
+
     // ------------------------------------------------------------------ Seiten
 
     /** Seitenname → .page (oder Template einer spezifikationslosen Seite). */
@@ -232,7 +237,7 @@ public class TapestryRegistry {
         final Map<String, VirtualFile> result = new LinkedHashMap<>();
         final GlobalSearchScope scope = GlobalSearchScope.projectScope(project);
         // 1. <page name="..." specification-path="..."> der .application
-        for (final VirtualFile app : FilenameIndex.getAllFilesByExt(project, EXT_APPLICATION, scope)) {
+        for (final VirtualFile app : findApplicationSpecs(project)) {
             forEachPathEntry(project, app, TAG_PAGE, ATTR_NAME, result::put);
         }
         // 2. .page-Dateien: einfacher Name und Pfad unterhalb von WEB-INF ("admin/Users")

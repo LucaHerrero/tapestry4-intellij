@@ -8,7 +8,7 @@ plugins {
 // Gradle-Version (gradle/wrapper): nicht neuer als die IntelliJ-Version, mit der das Projekt bearbeitet wird –
 // IntelliJ 2026.2 übernimmt mit Gradle 9.8.x die Abhängigkeiten des main-Source-Sets nicht ins IDE-Modell.
 group = "com.herreromarcos.idea"
-version = "0.3.4"
+version = "0.4.0"
 
 repositories {
     mavenCentral()
@@ -50,6 +50,25 @@ intellijPlatform {
         name = "Tapestry 4"
         version = project.version.toString()
         changeNotes = """
+            <b>0.4.0</b>
+            <ul>
+              <li>Performance: caches are no longer discarded on every keystroke, only when specifications,
+                  configuration, the file structure or Java classes change – fixed problems disappear immediately</li>
+              <li>OGNL finds getters like OGNL itself: <code>isActive()</code> also with return type <code>Boolean</code></li>
+              <li>Components declared in the template (<code>jwcid="field@TextField"</code>) are valid targets of
+                  <code>component:</code>, <code>clientId:</code>, <code>@InjectComponent</code> and
+                  <code>@EventListener(targets)</code></li>
+              <li><code>@Component</code> without <code>type</code> uses the return type</li>
+              <li>Meta keys: navigation and completion for <code>meta:</code>, <code>&lt;inject type="meta"&gt;</code>
+                  and <code>@InjectMeta</code></li>
+              <li><code>@Message</code>, <code>@InjectState</code> and <code>@InjectStateFlag</code> without value are
+                  checked against the key derived from the method name</li>
+              <li>Specifications: <code>&lt;component&gt;</code> needs <code>type</code> or <code>copy-of</code>;
+                  parameter, bean and asset names must be Java identifiers</li>
+              <li>Configuration as documented in the Tapestry 4.1 User's Guide: <code>template-extension</code> and
+                  <code>*-class-packages</code> only from specification, library or application;
+                  <code>namespace-properties-name</code> is supported</li>
+            </ul>
             <b>0.3.3</b>
             <ul>
               <li>.page, .jwc, .application, .library and .script files are treated as XML only if they are Tapestry

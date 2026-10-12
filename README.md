@@ -17,7 +17,7 @@ Wer es erst einmal ausprobieren will, startet mit `gradlew runIde` eine Sandbox-
 ### Templates
 - `jwcid` wird erkannt, mit Completion und Strg+Klick: für deklarierte Komponenten (`jwcid="greeting"`) genauso wie für implizite (`jwcid="@Insert"`, `jwcid="name@contrib:Table"`).
 - Die Parameter einer Komponente tauchen als Attribute in der Completion auf. Fehlende Pflichtparameter, veraltete Parameter und doppelte ids werden markiert.
-- Binding-Ausdrücke sind anklickbar: `ognl:user.address.city` führt zum Getter, `listener:onSave` zur Methode, `message:title` zum Eintrag in der Properties-Datei, `asset:`, `bean:` und `component:` in die Spezifikation.
+- Binding-Ausdrücke sind anklickbar: `ognl:user.address.city` führt zum Getter, `listener:onSave` zur Methode, `message:title` zum Eintrag in der Properties-Datei, `asset:`, `bean:` und `meta:` in die Spezifikation. `component:` und `clientId:` führen zur Komponente, auch wenn sie nur im Template steht (`jwcid="field@TextField"`).
 - `<span key="...">` führt ebenfalls zum Message-Key.
 
 Heißt das Attribut im Projekt anders (über `org.apache.tapestry.jwcid-attribute-name`), nimmt das Plugin den konfigurierten Namen.
@@ -25,13 +25,16 @@ Heißt das Attribut im Projekt anders (über `org.apache.tapestry.jwcid-attribut
 ### Spezifikationen
 - `.page`, `.jwc`, `.application`, `.library` und `.script` werden als XML erkannt und bekommen eigene Icons. Das Plugin schaut dafür aufs Wurzel-Element, eine `.page` oder `.script`, die nichts mit Tapestry zu tun hat, bleibt also unangetastet.
 - Die Original-DTDs von Tapestry (3.0, 4.0 und 4.1) sind dabei. Completion und Validierung funktionieren deshalb auch ohne Netzwerk.
-- Komponententypen, Parameter, Klassen, Beans, Assets, injizierte Seiten und Application State Objects lassen sich per Strg+Klick öffnen.
+- Komponententypen, Parameter, Klassen, Beans, Assets, injizierte Seiten, Meta-Schlüssel und Application State Objects lassen sich per Strg+Klick öffnen.
+- Ein `<component>` ohne `type` und ohne `copy-of` ist ein Fehler, ebenso Namen von Komponenten, Parametern, Beans und Assets, die keine Java-Bezeichner sind.
 
 ### OGNL
-Ausdrücke werden mit dem echten OGNL-Parser zerlegt, in der Version, die auch Tapestry 4.1 verwendet. Syntaxfehler sieht man sofort, und Ketten werden auch in Operatoren, Methodenaufrufen und Indizes aufgelöst. `users[0].name` kennt den Elementtyp der Liste, `@com.x.Util@FIELD` funktioniert, Pseudo-Properties wie `list.size` ebenfalls. Bei Maps, Projektionen und Variablen prüft das Plugin bewusst nicht.
+Ausdrücke werden mit dem echten OGNL-Parser zerlegt, in der Version, die auch Tapestry 4.1 verwendet. Syntaxfehler sieht man sofort, und Ketten werden auch in Operatoren, Methodenaufrufen und Indizes aufgelöst. `users[0].name` kennt den Elementtyp der Liste, `@com.x.Util@FIELD` funktioniert, Pseudo-Properties wie `list.size` ebenfalls. Getter werden so gefunden wie von OGNL selbst: `isActive()` zählt auch dann, wenn die Methode `Boolean` statt `boolean` liefert. Bei Maps, Projektionen und Variablen prüft das Plugin bewusst nicht.
 
 ### Annotationen
-Bei `@InjectPage`, `@InjectComponent`, `@Component`, `@InjectAsset`, `@Message`, `@InjectScript`, `@Asset`, `@InitialValue` und `@InjectState` gilt: Wo ein String auf etwas zeigt, gibt es Navigation, Completion und eine Warnung, wenn das Ziel fehlt.
+Bei `@InjectPage`, `@InjectComponent`, `@Component`, `@InjectAsset`, `@Message`, `@InjectScript`, `@Asset`, `@InitialValue`, `@InjectState`, `@InjectMeta` und `@EventListener` gilt: Wo ein String auf etwas zeigt, gibt es Navigation, Completion und eine Warnung, wenn das Ziel fehlt.
+
+Fehlt bei `@Message`, `@InjectState` oder `@InjectStateFlag` der Wert, leitet Tapestry den Schlüssel aus dem Methodennamen ab (`getPageTitle` → `page-title`). Das Plugin prüft dann diesen Schlüssel. Ein `@Component` ohne `type` bekommt wie in Tapestry den Rückgabetyp als Typ.
 
 ### Navigation
 Gutter-Icons verbinden Klasse, Spezifikation und Template. Mit *Navigate → Related Symbol* (Strg+Alt+Pos1) springt man zwischen den dreien hin und her. Unter *New* gibt es außerdem „Tapestry 4 Page“ und „Tapestry 4 Component“.
@@ -43,6 +46,8 @@ Hier habe ich mich an die Tapestry-Doku gehalten:
 - Template und Spezifikation gehören zusammen, wenn sie gleich heißen (`Home.html` und `Home.page`). Gibt es mehrere Kandidaten, gewinnt der mit dem ähnlichsten Pfad.
 - Die Seitenklasse kommt aus dem `class`-Attribut, sonst aus `page-class-packages` bzw. `component-class-packages`, sonst aus `org.apache.tapestry.default-page-class`.
 - Konfiguration wird in derselben Reihenfolge gesucht wie in Tapestry selbst: Spezifikation bzw. `@Meta`, dann Library oder Application, dann `web.xml` und zuletzt `hivemind.ApplicationDefaults`.
+- Ausnahmen laut Doku: `template-extension`, `page-class-packages` und `component-class-packages` zählen nur aus Spezifikation, Library oder Application, nicht aus `web.xml`.
+- Der Namespace-Katalog heißt wie die `.application` bzw. `.library`, außer `org.apache.tapestry.namespace-properties-name` legt einen anderen Namen fest.
 - Ein Binding-Präfix zählt nur, wenn es in `tapestry.bindings.BindingFactories` registriert ist. Eigene Präfixe aus dem Projekt werden dadurch auch erkannt.
 
 ## Grenzen
@@ -53,6 +58,9 @@ Hier habe ich mich an die Tapestry-Doku gehalten:
 - Dateien ohne DOCTYPE bekommen keine DTD-Validierung.
 - JVM-Properties wie `-Dorg.apache.tapestry…` kennt das Plugin nicht, die gibt es erst zur Laufzeit.
 - Verweise auf HiveMind-Services (`service:`, `@InjectObject`, `hivemind:`) übernimmt das separate HiveMind-Plugin.
+- Steht der Wert eines `<binding>` im Element-Inhalt statt im `value`-Attribut, wird er nicht ausgewertet.
+- Unbekannte Meta-Schlüssel werden nicht gemeldet, der Wert kann auch aus `web.xml`, HiveMind-Symbolen oder JVM-Properties kommen.
+- Templates und `.jwc`-Dateien werden großzügiger gefunden als in Tapestry: Das Plugin nimmt die Datei mit dem ähnlichsten Pfad im ganzen Projekt, Tapestry sucht nur an festen Stellen (neben der Spezifikation, im Kontext-Root, unter `WEB-INF`).
 
 ## Entwicklung
 

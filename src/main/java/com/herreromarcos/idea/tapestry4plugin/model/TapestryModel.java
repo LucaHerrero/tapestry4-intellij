@@ -1,11 +1,11 @@
 package com.herreromarcos.idea.tapestry4plugin.model;
 
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.roots.ProjectRootModificationTracker;
 import com.intellij.openapi.util.Key;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiClass;
+import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.search.FilenameIndex;
@@ -13,7 +13,6 @@ import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.util.CachedValue;
 import com.intellij.psi.util.CachedValueProvider;
 import com.intellij.psi.util.CachedValuesManager;
-import com.intellij.psi.util.PsiModificationTracker;
 import com.intellij.psi.xml.XmlFile;
 import com.intellij.psi.xml.XmlTag;
 import com.intellij.util.containers.ContainerUtil;
@@ -40,8 +39,7 @@ public class TapestryModel {
     public static @NotNull TapestryContext getContext(@NotNull PsiFile anyFile) {
         final PsiFile file = anyFile.getOriginalFile();
         return CachedValuesManager.getCachedValue(file, () ->
-                CachedValueProvider.Result.create(computeContext(file),
-                        PsiModificationTracker.MODIFICATION_COUNT, ProjectRootModificationTracker.getInstance(file.getProject())));
+                CachedValueProvider.Result.create(computeContext(file), TapestryModificationTracker.dependenciesWithJava(file.getProject())));
     }
 
     /**
@@ -55,9 +53,14 @@ public class TapestryModel {
             final TapestryContext ctx = spec != null ? getContext(spec)
                     : template != null ? getContext(template)
                     : new TapestryContext(null, null, psiClass, psiClass, SpecKind.PAGE);
-            return CachedValueProvider.Result.create(ctx,
-                    PsiModificationTracker.MODIFICATION_COUNT, ProjectRootModificationTracker.getInstance(psiClass.getProject()));
+            return CachedValueProvider.Result.create(ctx, TapestryModificationTracker.dependenciesWithJava(psiClass.getProject()));
         });
+    }
+
+    /** Kontext einer Klasse oder Datei – für Caches, die an einem der beiden hängen. */
+    public static @NotNull TapestryContext getContextOf(@NotNull PsiElement owner) {
+        if (owner instanceof final PsiClass psiClass) return getContext(psiClass);
+        return owner instanceof final PsiFile file ? getContext(file) : TapestryContext.empty();
     }
 
     private static TapestryContext computeContext(PsiFile file) {
@@ -103,7 +106,7 @@ public class TapestryModel {
         final List<String> metaKeys = spec == null ? List.of(META_PAGE_PACKAGES, META_COMPONENT_PACKAGES)
                 : List.of(kind == SpecKind.COMPONENT ? META_COMPONENT_PACKAGES : META_PAGE_PACKAGES);
         for (final String metaKey : metaKeys) {
-            for (final String pkg : TapestryConfiguration.getNamespaceMeta(owner, metaKey)) {
+            for (final String pkg : TapestryConfiguration.getNamespaceSpecMeta(owner, metaKey)) {
                 for (final String name : names) {
                     final PsiClass cls = JavaClasses.find("%s.%s".formatted(pkg, name), owner);
                     if (cls != null) return cls;
@@ -202,8 +205,8 @@ public class TapestryModel {
         if (fqn == null || name == null || !fqn.contains(".")) return List.of();
         final String pkg = StringUtil.getPackageName(fqn);
         final Project project = psiClass.getProject();
-        final boolean inConventionPackage = TapestryConfiguration.getProjectMeta(project, META_PAGE_PACKAGES).contains(pkg)
-                || TapestryConfiguration.getProjectMeta(project, META_COMPONENT_PACKAGES).contains(pkg);
+        final boolean inConventionPackage = TapestryConfiguration.getApplicationSpecMeta(project, META_PAGE_PACKAGES).contains(pkg)
+                || TapestryConfiguration.getApplicationSpecMeta(project, META_COMPONENT_PACKAGES).contains(pkg);
         if (!inConventionPackage) return List.of();
         final List<VirtualFile> templates = new ArrayList<>();
         for (final String extension : TapestryConfiguration.getTemplateExtensions(project)) {

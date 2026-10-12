@@ -53,7 +53,7 @@ class SpecReferenceProvider extends PsiReferenceProvider {
         }
         return switch ("%s@%s".formatted(tagName, attrName)) {
             case "component@type" -> single(new ComponentTypeReference(value, valueRange));
-            case "component@copy-of" -> single(new ComponentIdReference(value, valueRange, false));
+            case "component@copy-of" -> single(new ComponentIdReference(value, valueRange, ComponentIdReference.Scope.COPY_OF));
             case "binding@name", "inherited-binding@name", "static-binding@name", "message-binding@name",
                  "listener-binding@name" -> single(new ParameterNameReference(value, valueRange));
             case "binding@value" -> bindingValueReferences(value, tag, text, offset);
@@ -101,13 +101,17 @@ class SpecReferenceProvider extends PsiReferenceProvider {
         return provider.getReferencesByString(className, value, offset);
     }
 
-    /** {@code <inject type="page">} → Seite, {@code type="script"} → Skriptdatei, {@code type="state|state-flag"} → State Object. */
+    /**
+     * {@code <inject type="page">} → Seite, {@code type="script"} → Skriptdatei, {@code type="state|state-flag"} → State
+     * Object, {@code type="meta"} → Meta-Schlüssel.
+     */
     private static PsiReference[] injectReferences(XmlAttributeValue value, XmlTag tag, String text,
                                                    int offset, TextRange valueRange) {
         final String type = tag.getAttributeValue(ATTR_TYPE);
         if ("page".equals(type)) return single(new PageReference(value, valueRange));
         if ("script".equals(type)) return SpecPathReferences.create(value, text, offset, true);
         if ("state".equals(type) || "state-flag".equals(type)) return single(new StateObjectReference(value, valueRange));
+        if ("meta".equals(type)) return single(new MetaKeyReference(value, valueRange));
         return PsiReference.EMPTY_ARRAY;
     }
 }
