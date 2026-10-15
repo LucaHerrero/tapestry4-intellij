@@ -1,81 +1,68 @@
 # Tapestry 4 für IntelliJ IDEA
 
-Ein Plugin für alle, die noch mit Apache Tapestry 4.0 oder 4.1 arbeiten. Es läuft ab IntelliJ IDEA 2024.3, in der Community- wie in der Ultimate-Edition.
+IntelliJ-Plugin für Apache Tapestry 4.0 und 4.1. Läuft ab IntelliJ IDEA 2024.3 in der Community- und der Ultimate-Edition.
 
 ## Installation
+
+**Über den Marketplace:** *Settings → Plugins → Marketplace*, nach „Tapestry 4“ suchen und installieren.
+
+**Manuell:** Die ZIP aus den [Releases](https://github.com/LucaHerrero/tapestry4-intellij/releases) herunterladen und unter *Settings → Plugins → ⚙ → Install Plugin from Disk…* auswählen.
+
+## Features
+
+### Templates
+- `jwcid`-Completion und Navigation für deklarierte (`jwcid="greeting"`) und implizite Komponenten (`jwcid="@Insert"`, `jwcid="name@contrib:Table"`)
+- Komponentenparameter als Attribute in der Completion
+- Markierung fehlender Pflichtparameter, veralteter Parameter und doppelter ids
+- Navigation aus Binding-Ausdrücken: `ognl:`, `listener:`, `message:`, `asset:`, `bean:`, `meta:`, `component:`, `clientId:`
+- Navigation von `<span key="...">` zum Message-Key
+- Unterstützung eines umkonfigurierten `jwcid`-Attributnamens
+
+### Spezifikationen
+- Erkennung von `.page`, `.jwc`, `.application`, `.library` und `.script` mit eigenen Icons (anhand des Wurzel-Elements, fremde Dateien bleiben unberührt)
+- Mitgelieferte Tapestry-DTDs (3.0, 4.0, 4.1) für Completion und Validierung ohne Netzwerk
+- Navigation zu Komponententypen, Parametern, Klassen, Beans, Assets, injizierten Seiten, Meta-Schlüsseln und Application State Objects
+- Prüfung von `<component>` ohne `type`/`copy-of` und von ungültigen Namen
+
+### OGNL
+- Syntaxprüfung mit dem originalen OGNL-Parser
+- Auflösung von Property-Ketten inkl. Operatoren, Methodenaufrufen, Indizes und statischen Zugriffen
+- Navigation zu Gettern und Methoden
+
+### Annotationen
+- Navigation, Completion und Prüfung für `@InjectPage`, `@InjectComponent`, `@Component`, `@InjectAsset`, `@Message`, `@InjectScript`, `@Asset`, `@InitialValue`, `@InjectState`, `@InjectMeta` und `@EventListener`
+- Ableitung von Schlüsseln aus dem Methodennamen wie in Tapestry (`getPageTitle` → `page-title`)
+
+### Navigation
+- Gutter-Icons zwischen Klasse, Spezifikation und Template
+- Wechsel per *Navigate → Related Symbol* (Strg+Alt+Pos1)
+- *New → Tapestry 4 Page* und *Tapestry 4 Component*
+
+### Konfiguration
+- Auflösung von Seitenklassen über `class`, `page-class-packages`, `component-class-packages` und `default-page-class`
+- Konfigurationssuche in derselben Reihenfolge wie Tapestry: Spezifikation/`@Meta`, Library/Application, `web.xml`, `hivemind.ApplicationDefaults`
+- Erkennung eigener Binding-Präfixe aus `tapestry.bindings.BindingFactories`
+
+## Grenzen
+
+- Unbekannte OGNL-Properties sind Warnungen, keine Fehler.
+- Ohne Tapestry-JAR im Classpath werden Framework-Komponenten nicht aufgelöst, aber auch nicht als Fehler gemeldet.
+- Templates mit eigener Endung (z. B. `.wml`) müssen unter *Settings → Editor → File Types* als HTML zugeordnet werden.
+- Dateien ohne DOCTYPE bekommen keine DTD-Validierung.
+- JVM-Properties (`-Dorg.apache.tapestry…`) werden nicht ausgewertet.
+- HiveMind-Verweise (`service:`, `@InjectObject`, `hivemind:`) übernimmt das separate HiveMind-Plugin.
+- `<binding>`-Werte im Element-Inhalt statt im `value`-Attribut werden nicht ausgewertet.
+- Unbekannte Meta-Schlüssel werden nicht gemeldet.
+- Templates und `.jwc`-Dateien werden projektweit gesucht, Tapestry selbst sucht nur an festen Stellen.
+
+## Selbst bauen
 
 ```
 gradlew buildPlugin
 ```
 
-Die ZIP-Datei liegt danach in `build/distributions/`. In IntelliJ unter *Settings → Plugins → ⚙ → Install Plugin from Disk…* auswählen, fertig.
-
-Wer es erst einmal ausprobieren will, startet mit `gradlew runIde` eine Sandbox-IDE mit dem Plugin.
-
-## Was das Plugin kann
-
-### Templates
-- `jwcid` wird erkannt, mit Completion und Strg+Klick: für deklarierte Komponenten (`jwcid="greeting"`) genauso wie für implizite (`jwcid="@Insert"`, `jwcid="name@contrib:Table"`).
-- Die Parameter einer Komponente tauchen als Attribute in der Completion auf. Fehlende Pflichtparameter, veraltete Parameter und doppelte ids werden markiert.
-- Binding-Ausdrücke sind anklickbar: `ognl:user.address.city` führt zum Getter, `listener:onSave` zur Methode, `message:title` zum Eintrag in der Properties-Datei, `asset:`, `bean:` und `meta:` in die Spezifikation. `component:` und `clientId:` führen zur Komponente, auch wenn sie nur im Template steht (`jwcid="field@TextField"`).
-- `<span key="...">` führt ebenfalls zum Message-Key.
-
-Heißt das Attribut im Projekt anders (über `org.apache.tapestry.jwcid-attribute-name`), nimmt das Plugin den konfigurierten Namen.
-
-### Spezifikationen
-- `.page`, `.jwc`, `.application`, `.library` und `.script` werden als XML erkannt und bekommen eigene Icons. Das Plugin schaut dafür aufs Wurzel-Element, eine `.page` oder `.script`, die nichts mit Tapestry zu tun hat, bleibt also unangetastet.
-- Die Original-DTDs von Tapestry (3.0, 4.0 und 4.1) sind dabei. Completion und Validierung funktionieren deshalb auch ohne Netzwerk.
-- Komponententypen, Parameter, Klassen, Beans, Assets, injizierte Seiten, Meta-Schlüssel und Application State Objects lassen sich per Strg+Klick öffnen.
-- Ein `<component>` ohne `type` und ohne `copy-of` ist ein Fehler, ebenso Namen von Komponenten, Parametern, Beans und Assets, die keine Java-Bezeichner sind.
-
-### OGNL
-Ausdrücke werden mit dem echten OGNL-Parser zerlegt, in der Version, die auch Tapestry 4.1 verwendet. Syntaxfehler sieht man sofort, und Ketten werden auch in Operatoren, Methodenaufrufen und Indizes aufgelöst. `users[0].name` kennt den Elementtyp der Liste, `@com.x.Util@FIELD` funktioniert, Pseudo-Properties wie `list.size` ebenfalls. Getter werden so gefunden wie von OGNL selbst: `isActive()` zählt auch dann, wenn die Methode `Boolean` statt `boolean` liefert. Bei Maps, Projektionen und Variablen prüft das Plugin bewusst nicht.
-
-### Annotationen
-Bei `@InjectPage`, `@InjectComponent`, `@Component`, `@InjectAsset`, `@Message`, `@InjectScript`, `@Asset`, `@InitialValue`, `@InjectState`, `@InjectMeta` und `@EventListener` gilt: Wo ein String auf etwas zeigt, gibt es Navigation, Completion und eine Warnung, wenn das Ziel fehlt.
-
-Fehlt bei `@Message`, `@InjectState` oder `@InjectStateFlag` der Wert, leitet Tapestry den Schlüssel aus dem Methodennamen ab (`getPageTitle` → `page-title`). Das Plugin prüft dann diesen Schlüssel. Ein `@Component` ohne `type` bekommt wie in Tapestry den Rückgabetyp als Typ.
-
-### Navigation
-Gutter-Icons verbinden Klasse, Spezifikation und Template. Mit *Navigate → Related Symbol* (Strg+Alt+Pos1) springt man zwischen den dreien hin und her. Unter *New* gibt es außerdem „Tapestry 4 Page“ und „Tapestry 4 Component“.
-
-## Wie Dinge gefunden werden
-
-Hier habe ich mich an die Tapestry-Doku gehalten:
-
-- Template und Spezifikation gehören zusammen, wenn sie gleich heißen (`Home.html` und `Home.page`). Gibt es mehrere Kandidaten, gewinnt der mit dem ähnlichsten Pfad.
-- Die Seitenklasse kommt aus dem `class`-Attribut, sonst aus `page-class-packages` bzw. `component-class-packages`, sonst aus `org.apache.tapestry.default-page-class`.
-- Konfiguration wird in derselben Reihenfolge gesucht wie in Tapestry selbst: Spezifikation bzw. `@Meta`, dann Library oder Application, dann `web.xml` und zuletzt `hivemind.ApplicationDefaults`.
-- Ausnahmen laut Doku: `template-extension`, `page-class-packages` und `component-class-packages` zählen nur aus Spezifikation, Library oder Application, nicht aus `web.xml`.
-- Der Namespace-Katalog heißt wie die `.application` bzw. `.library`, außer `org.apache.tapestry.namespace-properties-name` legt einen anderen Namen fest.
-- Ein Binding-Präfix zählt nur, wenn es in `tapestry.bindings.BindingFactories` registriert ist. Eigene Präfixe aus dem Projekt werden dadurch auch erkannt.
-
-## Grenzen
-
-- Unbekannte OGNL-Properties sind Warnungen, keine Fehler.
-- Ohne Tapestry-JAR im Classpath werden Framework-Komponenten wie `Insert` oder `For` nicht aufgelöst, aber auch nicht als Fehler gemeldet.
-- Templates müssen in IntelliJ als HTML erkannt werden. Wer eine eigene Endung nutzt, zum Beispiel `.wml`, muss sie unter *Settings → Editor → File Types* zuordnen.
-- Dateien ohne DOCTYPE bekommen keine DTD-Validierung.
-- JVM-Properties wie `-Dorg.apache.tapestry…` kennt das Plugin nicht, die gibt es erst zur Laufzeit.
-- Verweise auf HiveMind-Services (`service:`, `@InjectObject`, `hivemind:`) übernimmt das separate HiveMind-Plugin.
-- Steht der Wert eines `<binding>` im Element-Inhalt statt im `value`-Attribut, wird er nicht ausgewertet.
-- Unbekannte Meta-Schlüssel werden nicht gemeldet, der Wert kann auch aus `web.xml`, HiveMind-Symbolen oder JVM-Properties kommen.
-- Templates und `.jwc`-Dateien werden großzügiger gefunden als in Tapestry: Das Plugin nimmt die Datei mit dem ähnlichsten Pfad im ganzen Projekt, Tapestry sucht nur an festen Stellen (neben der Spezifikation, im Kontext-Root, unter `WEB-INF`).
-
-## Entwicklung
-
-- Gebaut wird mit Java 21. Fehlt das JDK, lädt Gradle es selbst herunter.
-- Der Gradle-Wrapper bleibt vorerst auf 9.7.1. Mit 9.8 übernimmt IntelliJ 2026.2 die Abhängigkeiten nicht richtig ins Projekt, und alle `com.intellij.*`-Imports werden rot.
-- `gradlew test` startet die Tests, `gradlew verifyPlugin` prüft die Kompatibilität.
-- Commons Lang 3 kommt aus der IntelliJ-Plattform und ist deshalb nur `compileOnly`. IntelliJ 2024.3 bringt Version 3.17 mit, neuere APIs wie `Strings.CS` gibt es dort noch nicht.
-- Liefern die Tests nach Änderungen an DTDs oder anderen Ressourcen komische Ergebnisse, hilft es, `.intellijPlatform/sandbox` zu löschen.
-
-Zum Code-Stil: `final` an Feldern und lokalen Variablen, nicht an Parametern und Klassen. Meldungen schreibe ich als Format-Strings.
-
-## Releases
-
-Jeder Push auf `master` baut das Plugin, lässt Tests und Verifier laufen und veröffentlicht die ZIP als GitHub Release. Die Version steht in `build.gradle.kts`. Gibt es zu der Version schon ein Release, wird nur gebaut. Für ein neues Release also vorher die Version hochziehen.
+Die ZIP liegt danach in `build/distributions/`. Mit `gradlew runIde` startet eine Sandbox-IDE mit dem Plugin, `gradlew test` führt die Tests aus, `gradlew verifyPlugin` prüft die Kompatibilität. Benötigt Java 21 (wird bei Bedarf von Gradle heruntergeladen).
 
 ## Lizenz
 
-Apache License 2.0, siehe [LICENSE](LICENSE). Die DTDs stammen unverändert aus Apache Tapestry 4.1.6, außerdem ist OGNL 2.6.9 (BSD-Lizenz) enthalten. Details stehen in [NOTICE](NOTICE).
+Apache License 2.0, siehe [LICENSE](LICENSE). Enthält die DTDs aus Apache Tapestry 4.1.6 und OGNL 2.6.9 (BSD-Lizenz), Details in [NOTICE](NOTICE).
