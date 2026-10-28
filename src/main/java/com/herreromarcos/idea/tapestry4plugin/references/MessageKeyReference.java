@@ -18,8 +18,6 @@ import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
-import com.intellij.psi.search.FilenameIndex;
-import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.util.CachedValueProvider;
 import com.intellij.psi.util.CachedValuesManager;
 import com.intellij.psi.util.PsiTreeUtil;
@@ -96,8 +94,7 @@ public class MessageKeyReference extends TapestryReferenceBase implements PsiPol
         final VirtualFile ownerFile = owner != null ? owner.getOriginalFile().getVirtualFile() : null;
         if (ownerFile == null) return;
         final Project project = manager.getProject();
-        for (final VirtualFile library : FilenameIndex.getAllFilesByExt(project, TapestryConstants.EXT_LIBRARY,
-                GlobalSearchScope.allScope(project))) {
+        for (final VirtualFile library : TapestryRegistry.getLibraries(project)) {
             final VirtualFile folder = library.getParent();
             if (folder != null && VfsUtilCore.isAncestor(folder, ownerFile, true)) {
                 collect(manager, folder, TapestryConfiguration.getNamespaceCatalogName(project, library), result, seen);

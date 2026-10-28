@@ -107,23 +107,34 @@ public class ComponentModel {
         return templateIds(template).counts().getOrDefault(id, 0);
     }
 
-    /** Komponenten-ids eines Templates: Anzahl je id und die mit {@code jwcid="id@Type"} deklarierten. */
-    private record TemplateIds(Map<String, Integer> counts, Map<String, XmlAttributeValue> implicitDeclarations) {
+    /** jwcid-Werte, die auf eine in Spezifikation oder Klasse deklarierte Komponente verweisen ({@code jwcid="foo"}). */
+    public static @NotNull List<XmlAttributeValue> getTemplateReferences(@NotNull PsiFile template, @NotNull String id) {
+        return template instanceof final XmlFile xml ? templateIds(xml).references().getOrDefault(id, List.of()) : List.of();
+    }
+
+    /**
+     * Komponenten-ids eines Templates: Anzahl je id, die mit {@code jwcid="id@Type"} deklarierten und die Verweise
+     * {@code jwcid="id"} auf deklarierte Komponenten.
+     */
+    private record TemplateIds(Map<String, Integer> counts, Map<String, XmlAttributeValue> implicitDeclarations,
+                               Map<String, List<XmlAttributeValue>> references) {
     }
 
     private static TemplateIds templateIds(XmlFile template) {
         return CachedValuesManager.getCachedValue(template, () -> {
             final Map<String, Integer> counts = new HashMap<>();
             final Map<String, XmlAttributeValue> declarations = new LinkedHashMap<>();
+            final Map<String, List<XmlAttributeValue>> references = new HashMap<>();
             for (final XmlTag tag : PsiTreeUtil.findChildrenOfType(template, XmlTag.class)) {
                 final XmlAttributeValue value = TapestryConfiguration.findJwcidValueElement(tag);
                 final Jwcid jwcid = value != null ? Jwcid.parse(value.getValue()) : null;
                 if (jwcid == null || jwcid.id() == null) continue;
                 counts.merge(jwcid.id(), 1, Integer::sum);
                 if (jwcid.isImplicit()) declarations.putIfAbsent(jwcid.id(), value);
+                if (jwcid.isDeclaredReference()) references.computeIfAbsent(jwcid.id(), k -> new ArrayList<>()).add(value);
             }
             // auch von der Konfiguration abhängig: der Name des jwcid-Attributs
-            return CachedValueProvider.Result.create(new TemplateIds(counts, declarations),
+            return CachedValueProvider.Result.create(new TemplateIds(counts, declarations, references),
                     ArrayUtil.append(TapestryModificationTracker.dependenciesWithJava(template.getProject()), template));
         });
     }
@@ -200,8 +211,8 @@ public class ComponentModel {
                 final XmlAttributeValue nameValue = nameAttr != null ? nameAttr.getValueElement() : null;
                 final String name = SpecXml.attr(tag, ATTR_NAME);
                 if (name == null || nameValue == null || !names.add(name)) continue;
-                result.add(new ComponentParameter(name, SpecXml.isTrue(tag.getAttributeValue("required")),
-                        SpecXml.splitList(tag.getAttributeValue("aliases")), SpecXml.isTrue(tag.getAttributeValue("deprecated")),
+                result.add(new ComponentParameter(name, SpecXml.isTrue(tag.getAttributeValue(ATTR_REQUIRED)),
+                        SpecXml.splitList(tag.getAttributeValue(ATTR_ALIASES)), SpecXml.isTrue(tag.getAttributeValue(ATTR_DEPRECATED)),
                         nameValue));
             }
         }
@@ -239,7 +250,7 @@ public class ComponentModel {
         final PsiClass cls = componentClassWithAnnotation(componentSpec);
         if (cls != null && cls.isDeprecated()) return true;
         final XmlTag root = SpecXml.rootTag(componentSpec);
-        return root != null && SpecXml.isTrue(root.getAttributeValue("deprecated"));
+        return root != null && SpecXml.isTrue(root.getAttributeValue(ATTR_DEPRECATED));
     }
 
     /**
@@ -251,7 +262,7 @@ public class ComponentModel {
         final Set<String> result = new HashSet<>();
         final XmlTag root = SpecXml.rootTag(componentSpec);
         if (root != null) {
-            for (final XmlTag tag : root.findSubTags("reserved-parameter")) {
+            for (final XmlTag tag : root.findSubTags(TAG_RESERVED_PARAMETER)) {
                 final String name = SpecXml.attr(tag, ATTR_NAME);
                 if (name != null) result.add(normalize(name));
             }
@@ -289,32 +300,20 @@ public class ComponentModel {
     /**
      * Eigenschaften, die Tapestry zur Laufzeit aus der Spezifikation erzeugt (ohne Java-Deklaration):
      * {@code <property name>}, jeder {@code <parameter>} (Name oder {@code property}-Attribut) sowie das
-     * {@code property}-Attribut von {@code <inject>}, {@code <bean>}, {@code <asset>} und {@code <component>}.
-     * Aus der 3.0-DTD zusätzlich {@code <property-specification>} und {@code <parameter property-name>}.
+     * {@code property}-Attribut von {@code <inject>}, {@code <bean>}, {@code <asset>} und {@code <component>}
+     * ({@link SpecXml#propertyAttribute}).
      */
     public static @NotNull Map<String, XmlAttributeValue> getSpecProperties(@Nullable XmlFile spec) {
         final XmlTag root = SpecXml.rootTag(spec);
         if (root == null) return Map.of();
+        final boolean dtd30 = SpecXml.isDtd30(spec);
         final Map<String, XmlAttributeValue> result = new LinkedHashMap<>();
         for (final XmlTag tag : root.getSubTags()) {
-            final XmlAttribute attribute = switch (tag.getName()) {
-                case TAG_PROPERTY, TAG_PROPERTY_SPECIFICATION -> tag.getAttribute(ATTR_NAME);
-                case TAG_PARAMETER -> firstPresent(tag, ATTR_PROPERTY, ATTR_PROPERTY_NAME, ATTR_NAME);
-                case TAG_INJECT, TAG_BEAN, TAG_ASSET, TAG_COMPONENT -> tag.getAttribute(ATTR_PROPERTY);
-                default -> null;
-            };
+            final XmlAttribute attribute = SpecXml.propertyAttribute(tag, dtd30);
             final XmlAttributeValue value = attribute != null ? attribute.getValueElement() : null;
             if (value != null && !value.getValue().isBlank()) result.putIfAbsent(value.getValue().trim(), value);
         }
         return result;
-    }
-
-    private static @Nullable XmlAttribute firstPresent(XmlTag tag, String... names) {
-        for (final String name : names) {
-            final XmlAttribute attribute = tag.getAttribute(name);
-            if (attribute != null && !StringUtil.isEmptyOrSpaces(attribute.getValue())) return attribute;
-        }
-        return null;
     }
 
     /** Getter mit der Annotation (z.B. {@code @Asset}, {@code @Bean}); der Name ist der Eigenschaftsname. */

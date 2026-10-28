@@ -29,6 +29,7 @@ import java.util.Set;
 /** Java-Klassen finden und prüfen. */
 public class JavaClasses {
     private static final String[] GETTER_PREFIXES = {"get", "is"};
+
     private JavaClasses() {
     }
 

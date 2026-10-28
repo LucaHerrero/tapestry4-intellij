@@ -50,7 +50,7 @@ public class SpecificationSupportTest extends TapestryTestCase {
                   <unknown-element/>
                 </component-specification>
                 """);
-        assertTrue(hasErrorOn());
+        assertTrue(hasUnknownElementError());
     }
 
     public void testOriginalScriptDtds() {
@@ -70,7 +70,7 @@ public class SpecificationSupportTest extends TapestryTestCase {
             final List<String> children = allowedChildren(rootTag(file));
             assertTrue(doctypes[i][0] + " " + children,
                     children.containsAll(List.of("include-script", "input-symbol", "body", "initialization")));
-            assertTrue(doctypes[i][0], hasErrorOn());
+            assertTrue(doctypes[i][0], hasUnknownElementError());
         }
     }
 

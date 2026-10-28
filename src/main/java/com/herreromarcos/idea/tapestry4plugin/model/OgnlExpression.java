@@ -180,11 +180,8 @@ public class OgnlExpression {
         void walk(Node node, boolean rootContext) {
             switch (type(node)) {
                 case AST_CHAIN -> walkChain(node, rootContext);
-                case AST_PROPERTY, AST_METHOD, AST_STATIC_FIELD, AST_STATIC_METHOD -> {
-                    final List<Segment> segments = new ArrayList<>();
-                    final Chain chain = walkChainStart(node, rootContext, segments);
-                    if (chain != null) record(chain.rootKind(), chain.staticClass(), segments);
-                }
+                case AST_PROPERTY, AST_METHOD, AST_STATIC_FIELD, AST_STATIC_METHOD ->
+                        record(walkChainStart(node, rootContext, new ArrayList<>()));
                 case AST_CTOR -> {
                     nextToken("new");
                     className();
@@ -214,8 +211,9 @@ public class OgnlExpression {
         }
 
         /**
-         * Erstes Glied einer Kette; liefert deren Wurzel oder {@code null}, wenn sie nicht auflösbar ist. Die Tokens
-         * werden in jedem Fall verbraucht, damit die Zuordnung der folgenden Knoten stimmt.
+         * Erstes Glied einer Kette; liefert die Kette oder {@code null}, wenn sie nicht auflösbar ist. Die Kette
+         * verwendet {@code segments}, weitere Glieder werden dort angehängt. Die Tokens werden in jedem Fall
+         * verbraucht, damit die Zuordnung der folgenden Knoten stimmt.
          */
         private @Nullable Chain walkChainStart(Node node, boolean rootContext, List<Segment> segments) {
             switch (type(node)) {
@@ -261,9 +259,10 @@ public class OgnlExpression {
         }
 
         private void walkChain(Node chainNode, boolean rootContext) {
-            List<Segment> segments = new ArrayList<>();
+            final List<Segment> segments = new ArrayList<>();
             final Chain chain = walkChainStart(chainNode.jjtGetChild(0), rootContext, segments);
-            if (chain == null) segments = null;
+            // false, sobald ein Teilausdruck den Typ unbekannt macht: weitere Glieder gehören zu keiner Kette mehr
+            boolean open = true;
             int indexCount = 0;
             for (int i = 1; i < chainNode.jjtGetNumChildren(); i++) {
                 final Node child = chainNode.jjtGetChild(i);
@@ -276,20 +275,21 @@ public class OgnlExpression {
                     final boolean call = AST_METHOD.equals(type);
                     final Segment segment = segment(call ? methodName(child) : child.toString(), call, indexCount);
                     if (call) walkChildren(child, true);
-                    if (segments != null && segment != null) segments.add(segment);
+                    if (open && segment != null) segments.add(segment);
                     indexCount = 0;
                 } else {
                     // Projektion, Selektion oder Teilausdruck: ab hier ist der Typ unbekannt
                     walk(child, false);
-                    if (segments != null) record(chain.rootKind(), chain.staticClass(), segments);
-                    segments = null;
+                    if (open) record(chain);
+                    open = false;
                 }
             }
-            if (segments != null) record(chain.rootKind(), chain.staticClass(), segments);
+            if (open) record(chain);
         }
 
-        private void record(RootKind rootKind, @Nullable String staticClass, List<Segment> segments) {
-            if (!segments.isEmpty()) result.chains.add(new Chain(rootKind, staticClass, segments));
+        /** Übernimmt eine auflösbare Kette mit mindestens einem Glied. */
+        private void record(@Nullable Chain chain) {
+            if (chain != null && !chain.segments().isEmpty()) result.chains.add(chain);
         }
 
         private static boolean isIndexed(Node property) {

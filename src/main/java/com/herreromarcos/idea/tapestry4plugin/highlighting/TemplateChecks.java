@@ -11,12 +11,17 @@ import com.herreromarcos.idea.tapestry4plugin.model.TapestryModel;
 import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.openapi.util.text.StringUtil;
+import com.intellij.psi.ElementManipulators;
 import com.intellij.psi.xml.XmlAttribute;
 import com.intellij.psi.xml.XmlAttributeValue;
 import com.intellij.psi.xml.XmlFile;
 import com.intellij.psi.xml.XmlTag;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.herreromarcos.idea.tapestry4plugin.TapestryConstants.REMOVE_ID;
@@ -42,17 +47,29 @@ class TemplateChecks {
         checkTemplateParameters(tag, spec, type, specBound, jwcidValue, holder);
     }
 
-    /** Wert des jwcid-Attributs: nicht leer, gültige und im Template eindeutige id. */
+    /**
+     * Wert des jwcid-Attributs: nicht leer, gültige und im Template eindeutige id; die id einer impliziten
+     * Komponente darf nicht schon in Spezifikation oder Klasse deklariert sein
+     * ({@code ComponentTemplateLoaderLogic.checkForDuplicateId}).
+     */
     static void checkJwcid(XmlAttributeValue value, AnnotationHolder holder) {
         if (value.getValue().isBlank()) {
             holder.newAnnotation(HighlightSeverity.ERROR, "Empty jwcid").create();
             return;
         }
-        final String id = Jwcid.parse(value.getValue()).id();
+        final Jwcid jwcid = Jwcid.parse(value.getValue());
+        final String id = jwcid.id();
         if (id == null) return;
         ComponentUsageChecks.checkComponentId(holder, id);
         if (ComponentModel.countComponentId((XmlFile) value.getContainingFile(), id) > 1) {
             holder.newAnnotation(HighlightSeverity.ERROR, "Duplicate component id '%s' in template".formatted(id)).create();
+        }
+        if (!jwcid.isImplicit()) return;
+        final TapestryContext ctx = TapestryModel.getContext(value.getContainingFile());
+        if (ComponentModel.findDeclaredComponent(ctx, id) != null) {
+            holder.newAnnotation(HighlightSeverity.ERROR, "Component '%s' is already declared in %s".formatted(id, ctx.displayName()))
+                    .range(jwcid.idRange().shiftRight(value.getTextRange().getStartOffset()
+                            + ElementManipulators.getValueTextRange(value).getStartOffset())).create();
         }
     }
 
@@ -90,20 +107,37 @@ class TemplateChecks {
         }
         for (final ComponentParameter parameter : ComponentModel.getParameters(spec)) {
             if (!parameter.required() || ComponentUsageChecks.isBound(parameter, bound)) continue;
-            holder.newAnnotation(HighlightSeverity.WARNING, "Required parameter '%s' of component '%s' is not bound"
+            holder.newAnnotation(HighlightSeverity.ERROR, "Required parameter '%s' of component '%s' is not bound"
                             .formatted(parameter.name(), type))
                     .range(jwcidValue).create();
         }
     }
 
-    /** Veraltete Komponente sowie die Regeln aus {@link ComponentUsageChecks#checkParameterUsage} für jedes Attribut. */
+    /**
+     * Veraltete Komponente sowie die Regeln aus {@link ComponentUsageChecks#checkParameterUsage} für jedes Attribut.
+     * Bindet ein weiteres Attribut denselben Parameter (Name und Alias), ist ein Ausdruck ein Fehler: Tapestry
+     * ignoriert nur Literale, die auf ein bestehendes Binding treffen ({@code ComponentTemplateLoaderLogic.validate}),
+     * und die Reihenfolge der Attribute ist dort nicht festgelegt.
+     */
     private static void checkTemplateParameters(XmlTag tag, XmlFile spec, String type, Set<String> specBound,
                                                 XmlAttributeValue jwcidValue, AnnotationHolder holder) {
         ComponentUsageChecks.checkDeprecatedComponent(holder, spec, type, jwcidValue);
+        final Map<String, List<String>> attributesByParameter = new HashMap<>();
+        for (final XmlAttribute attribute : tag.getAttributes()) {
+            final ComponentParameter parameter = ComponentModel.findParameter(spec, attribute.getName());
+            if (parameter != null) attributesByParameter.computeIfAbsent(parameter.name(), k -> new ArrayList<>()).add(attribute.getName());
+        }
         for (final XmlAttribute attribute : tag.getAttributes()) {
             if (attribute.getValueElement() == jwcidValue || attribute.getNameElement() == null) continue;
             final boolean literal = BindingExpression.parse(StringUtil.notNullize(attribute.getValue()), tag).isLiteral();
             ComponentUsageChecks.checkParameterUsage(holder, spec, type, attribute.getName(), literal, specBound, attribute.getNameElement());
+            final ComponentParameter parameter = ComponentModel.findParameter(spec, attribute.getName());
+            final List<String> attributes = parameter != null ? attributesByParameter.get(parameter.name()) : List.of();
+            if (!literal && attributes.size() > 1) {
+                holder.newAnnotation(HighlightSeverity.ERROR, "Parameter '%s' of component '%s' is bound more than once (%s)"
+                                .formatted(parameter.name(), type, String.join(", ", attributes)))
+                        .range(attribute.getNameElement()).create();
+            }
         }
     }
 

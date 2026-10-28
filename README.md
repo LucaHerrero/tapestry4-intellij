@@ -14,6 +14,7 @@ IntelliJ-Plugin für Apache Tapestry 4.0 und 4.1. Läuft ab IntelliJ IDEA 2024.3
 - `jwcid`-Completion und Navigation für deklarierte (`jwcid="greeting"`) und implizite Komponenten (`jwcid="@Insert"`, `jwcid="name@contrib:Table"`)
 - Komponentenparameter als Attribute in der Completion
 - Markierung fehlender Pflichtparameter, veralteter Parameter und doppelter ids
+- Fehler wie zur Laufzeit von Tapestry 4.1: reservierte Parameter als Ausdruck, Parameter unter Name und Alias gebunden, implizite ids, die schon in Spezifikation oder Klasse deklariert sind
 - Navigation aus Binding-Ausdrücken: `ognl:`, `listener:`, `message:`, `asset:`, `bean:`, `meta:`, `component:`, `clientId:`
 - Navigation von `<span key="...">` zum Message-Key
 - Unterstützung eines umkonfigurierten `jwcid`-Attributnamens
@@ -22,7 +23,9 @@ IntelliJ-Plugin für Apache Tapestry 4.0 und 4.1. Läuft ab IntelliJ IDEA 2024.3
 - Erkennung von `.page`, `.jwc`, `.application`, `.library` und `.script` mit eigenen Icons (anhand des Wurzel-Elements, fremde Dateien bleiben unberührt)
 - Mitgelieferte Tapestry-DTDs (3.0, 4.0, 4.1) für Completion und Validierung ohne Netzwerk
 - Navigation zu Komponententypen, Parametern, Klassen, Beans, Assets, injizierten Seiten, Meta-Schlüsseln und Application State Objects
-- Prüfung von `<component>` ohne `type`/`copy-of` und von ungültigen Namen
+- Prüfungen wie beim Laden durch Tapestry 4.1: `<component>` ohne oder mit beidem von `type`/`copy-of`, `copy-of` auf eine später deklarierte Komponente, Pflichtparameter mit Default, `inherit-informal-parameters` bei rein formalen Komponenten, doppelt gebundene Parameter
+- Doppelte Parameter (inkl. Aliase), Assets, Beans, Properties sowie Eigenschaften, die zwei Elemente erzeugen; doppelte Seiten, Komponententypen, Libraries und Extensions in `.application`/`.library`
+- Namensregeln aus Tapestrys Parser (ids, Parameter, Properties, Seiten, Komponententypen, Libraries, Extensions) und reservierte Library-ids `framework`/`application`
 
 ### OGNL
 - Syntaxprüfung mit dem originalen OGNL-Parser

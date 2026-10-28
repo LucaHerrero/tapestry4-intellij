@@ -1,12 +1,11 @@
 package com.herreromarcos.idea.tapestry4plugin;
 
-import com.intellij.lang.annotation.HighlightSeverity;
+import com.herreromarcos.idea.tapestry4plugin.model.TapestryModificationTracker;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Document;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
-
-import java.util.List;
+import com.intellij.testFramework.PlatformTestUtil;
 
 /**
  * Behobene Probleme müssen sofort verschwinden: die Caches hängen nicht mehr an jeder PSI-Änderung, dürfen aber
@@ -35,12 +34,37 @@ public class CacheInvalidationTest extends TapestryTestCase {
         assertFalse(warnings().toString(), warnings().stream().anyMatch(m -> m.contains("email")));
     }
 
-    private List<String> errors() {
-        return highlightingMessages(HighlightSeverity.ERROR);
+    // ---- Strukturänderungen: nur Dateien, die das Plugin auswertet, verwerfen die projektweiten Caches
+
+    public void testNewComponentSpecIsRecognizedImmediately() {
+        configure("Home.html", "<html><body><span jwcid=\"@Fresh\"/></body></html>");
+        assertTrue(warnings().toString(), warnings().stream().anyMatch(m -> m.contains("Unknown component type 'Fresh'")));
+
+        myFixture.addFileToProject("Fresh.jwc", component("<component-specification/>"));
+
+        assertFalse(warnings().toString(), warnings().stream().anyMatch(m -> m.contains("Unknown component type 'Fresh'")));
     }
 
-    private List<String> warnings() {
-        return highlightingMessages(HighlightSeverity.WARNING);
+    public void testNewMessageCatalogIsRecognizedImmediately() {
+        configure("Home.html", "<html><body><span jwcid=\"@Insert\" value=\"message:fresh\"/></body></html>");
+        assertTrue(warnings().toString(), warnings().stream().anyMatch(m -> m.contains("'fresh' not found")));
+
+        myFixture.addFileToProject("Home_de.properties", "fresh=Frisch\n");
+
+        assertFalse(warnings().toString(), warnings().stream().anyMatch(m -> m.contains("'fresh' not found")));
+    }
+
+    public void testUnrelatedFilesKeepTheCaches() {
+        final TapestryModificationTracker tracker = TapestryModificationTracker.getInstance(getProject());
+        // ausstehende Ereignisse aus setUp und vorherigen Tests zuerst abarbeiten
+        PlatformTestUtil.dispatchAllEventsInIdeEventQueue();
+        final long before = tracker.getModificationCount();
+        myFixture.addFileToProject("notes.txt", "x");
+        myFixture.addFileToProject("Compiled.class", "x");
+        assertEquals(before, tracker.getModificationCount());
+
+        myFixture.addFileToProject("Other.html", "<html/>");
+        assertTrue(tracker.getModificationCount() > before);
     }
 
     private void replace(PsiFile file, String search, String replacement) {

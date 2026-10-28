@@ -105,8 +105,8 @@ public abstract class NewTapestryElementAction extends AnAction {
         return """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <!DOCTYPE %1$s PUBLIC
-                        "-//Apache Software Foundation//Tapestry Specification 4.0//EN"
-                        "http://jakarta.apache.org/tapestry/dtd/Tapestry_4_0.dtd">
+                        "-//Apache Software Foundation//Tapestry Specification 4.1//EN"
+                        "http://tapestry.apache.org/dtd/Tapestry_4_1.dtd">
                 <%1$s%2$s%3$s>
                     <description></description>
                 </%1$s>

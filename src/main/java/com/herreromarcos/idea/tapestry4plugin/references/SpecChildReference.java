@@ -8,7 +8,6 @@ import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiMethod;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -52,12 +51,9 @@ public class SpecChildReference extends TapestryReferenceBase {
         final TapestryContext ctx = context();
         final Map<String, PsiElement> result = new LinkedHashMap<>();
         for (final String tag : kind.tags) {
-            for (final String name : SpecXml.childValues(ctx.spec(), tag, ATTR_NAME)) {
-                result.putIfAbsent(name, SpecXml.findChild(ctx.spec(), tag, ATTR_NAME, name));
-            }
+            SpecXml.collectNamedChildren(ctx.spec(), tag, ATTR_NAME, result);
         }
-        final Map<String, PsiMethod> annotated = ComponentModel.getAnnotatedProperties(ctx.declaredClass(), kind.annotation);
-        annotated.forEach(result::putIfAbsent);
+        ComponentModel.getAnnotatedProperties(ctx.declaredClass(), kind.annotation).forEach(result::putIfAbsent);
         return result;
     }
 

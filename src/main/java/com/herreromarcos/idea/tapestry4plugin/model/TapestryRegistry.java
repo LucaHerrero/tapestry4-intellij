@@ -35,6 +35,8 @@ public class TapestryRegistry {
     private static final Key<CachedValue<Map<String, VirtualFile>>> COMPONENT_TYPES_KEY = Key.create("tapestry4.componentTypes");
     private static final Key<CachedValue<Map<String, VirtualFile>>> PAGES_KEY = Key.create("tapestry4.pages");
     private static final Key<CachedValue<Map<VirtualFile, VirtualFile>>> LIBRARY_MEMBERS_KEY = Key.create("tapestry4.libraryMembers");
+    private static final Key<CachedValue<Map<VirtualFile, String>>> REFERENCED_LIBRARIES_KEY = Key.create("tapestry4.referencedLibraries");
+    private static final Key<CachedValue<Set<VirtualFile>>> LIBRARIES_KEY = Key.create("tapestry4.libraries");
     private static final Key<CachedValue<Boolean>> FRAMEWORK_PRESENT_KEY = Key.create("tapestry4.frameworkPresent");
 
     private TapestryRegistry() {
@@ -94,11 +96,10 @@ public class TapestryRegistry {
     private static Map<String, VirtualFile> computeComponentTypes(Project project) {
         final Map<String, VirtualFile> unprefixed = new LinkedHashMap<>();
         final Map<String, VirtualFile> prefixed = new LinkedHashMap<>();
-        final GlobalSearchScope projectScope = GlobalSearchScope.projectScope(project);
 
         // 1. <component-type> aus .application/.library des Projekts
         for (final String ext : List.of(EXT_APPLICATION, EXT_LIBRARY)) {
-            for (final VirtualFile spec : FilenameIndex.getAllFilesByExt(project, ext, projectScope)) {
+            for (final VirtualFile spec : ProjectFiles.byExtension(project, ext)) {
                 collectComponentTypes(project, spec, null, unprefixed);
             }
         }
@@ -114,7 +115,7 @@ public class TapestryRegistry {
         });
 
         // 2. Lose .jwc-Dateien im Projekt (WEB-INF, Kontext-Root, Pakete)
-        for (final VirtualFile jwc : FilenameIndex.getAllFilesByExt(project, EXT_COMPONENT, projectScope)) {
+        for (final VirtualFile jwc : ProjectFiles.byExtension(project, EXT_COMPONENT)) {
             unprefixed.putIfAbsent(jwc.getNameWithoutExtension(), jwc);
         }
 
@@ -133,10 +134,13 @@ public class TapestryRegistry {
 
     /** Über {@code <library id specification-path>} eingebundene Bibliotheken (auch verschachtelte) → library id. */
     private static Map<VirtualFile, String> findReferencedLibraries(Project project) {
+        return ProjectCache.get(project, REFERENCED_LIBRARIES_KEY, () -> computeReferencedLibraries(project));
+    }
+
+    private static Map<VirtualFile, String> computeReferencedLibraries(Project project) {
         final Map<VirtualFile, String> libraries = new LinkedHashMap<>();
-        final GlobalSearchScope projectScope = GlobalSearchScope.projectScope(project);
         for (final String ext : List.of(EXT_APPLICATION, EXT_LIBRARY)) {
-            for (final VirtualFile spec : FilenameIndex.getAllFilesByExt(project, ext, projectScope)) {
+            for (final VirtualFile spec : ProjectFiles.byExtension(project, ext)) {
                 collectLibraries(project, spec, libraries);
             }
         }
@@ -174,13 +178,20 @@ public class TapestryRegistry {
         return file.getParent() != null ? members.get(file.getParent()) : null;
     }
 
+    /** Alle Bibliotheken: eingebundene, die .library-Dateien des Projekts und die Framework-Bibliothek. */
+    public static @NotNull Set<VirtualFile> getLibraries(@NotNull Project project) {
+        return ProjectCache.get(project, LIBRARIES_KEY, () -> {
+            final Set<VirtualFile> libraries = new LinkedHashSet<>(findReferencedLibraries(project).keySet());
+            libraries.addAll(ProjectFiles.byExtension(project, EXT_LIBRARY));
+            libraries.addAll(findFrameworkLibraries(project));
+            return libraries;
+        });
+    }
+
     /** Mitglied (Spezifikation oder Ordner) → Bibliothek. */
     private static Map<VirtualFile, VirtualFile> computeLibraryMembers(Project project) {
-        final Set<VirtualFile> libraries = new LinkedHashSet<>(findReferencedLibraries(project).keySet());
-        libraries.addAll(FilenameIndex.getAllFilesByExt(project, EXT_LIBRARY, GlobalSearchScope.projectScope(project)));
-        libraries.addAll(findFrameworkLibraries(project));
         final Map<VirtualFile, VirtualFile> members = new HashMap<>();
-        for (final VirtualFile library : libraries) {
+        for (final VirtualFile library : getLibraries(project)) {
             forEachPathEntry(project, library, TAG_COMPONENT_TYPE, ATTR_TYPE, (type, target) -> members.putIfAbsent(target, library));
             forEachPathEntry(project, library, TAG_PAGE, ATTR_NAME, (name, target) -> members.putIfAbsent(target, library));
             final boolean sharedWithApplication = siblings(library).stream().anyMatch(f -> EXT_APPLICATION.equals(f.getExtension()));
@@ -218,7 +229,7 @@ public class TapestryRegistry {
 
     /** Alle .application-Dateien des Projekts. */
     public static @NotNull Collection<VirtualFile> findApplicationSpecs(@NotNull Project project) {
-        return FilenameIndex.getAllFilesByExt(project, EXT_APPLICATION, GlobalSearchScope.projectScope(project));
+        return ProjectFiles.byExtension(project, EXT_APPLICATION);
     }
 
     // ------------------------------------------------------------------ Seiten
@@ -235,20 +246,19 @@ public class TapestryRegistry {
 
     private static Map<String, VirtualFile> computePages(Project project) {
         final Map<String, VirtualFile> result = new LinkedHashMap<>();
-        final GlobalSearchScope scope = GlobalSearchScope.projectScope(project);
         // 1. <page name="..." specification-path="..."> der .application
         for (final VirtualFile app : findApplicationSpecs(project)) {
             forEachPathEntry(project, app, TAG_PAGE, ATTR_NAME, result::put);
         }
         // 2. .page-Dateien: einfacher Name und Pfad unterhalb von WEB-INF ("admin/Users")
-        for (final VirtualFile page : FilenameIndex.getAllFilesByExt(project, EXT_PAGE, scope)) {
+        for (final VirtualFile page : ProjectFiles.byExtension(project, EXT_PAGE)) {
             result.putIfAbsent(page.getNameWithoutExtension(), page);
             final String belowWebInf = TapestryPaths.pathBelowWebInf(page);
             if (belowWebInf != null) result.putIfAbsent(belowWebInf, page);
         }
         // 3. Spezifikationslose Seiten: Templates im Kontext-Root (nicht unter WEB-INF)
         for (final String extension : TapestryConfiguration.getTemplateExtensions(project)) {
-            for (final VirtualFile template : FilenameIndex.getAllFilesByExt(project, extension, scope)) {
+            for (final VirtualFile template : ProjectFiles.byExtension(project, extension)) {
                 final VirtualFile webRoot = TapestryPaths.webRoot(template);
                 final String relative = webRoot != null ? VfsUtilCore.getRelativePath(template, webRoot, '/') : null;
                 if (relative != null && !relative.startsWith(WEB_INF + "/")) {

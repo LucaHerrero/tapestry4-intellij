@@ -37,6 +37,8 @@
         <!-- Tapestry-Spezifikationen und Script-Dateien sind XML – erkannt am Wurzel-Element, nicht global über die Endung -->
         <fileTypeDetector implementation="com.herreromarcos.idea.tapestry4plugin.filetype.TapestryFileTypeDetector"/>
         <standardResourceProvider implementation="com.herreromarcos.idea.tapestry4plugin.dtd.TapestryResourceProvider"/>
+        <!-- class-Attribut der .page/.jwc → Datei, für die Zuordnung Klasse → Spezifikation -->
+        <fileBasedIndex implementation="com.herreromarcos.idea.tapestry4plugin.model.SpecClassIndex"/>
         <iconProvider implementation="com.herreromarcos.idea.tapestry4plugin.navigation.TapestryIconProvider" order="first"/>
 
         <!-- Referenzen, Completion, Prüfungen (XML gilt auch für HTML/XHTML) -->

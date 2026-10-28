@@ -9,6 +9,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -34,7 +35,7 @@ public class TapestryFileTypeDetector implements FileTypeRegistry.FileTypeDetect
 
     @Override
     public @Nullable FileType detect(@NotNull VirtualFile file, @NotNull ByteSequence firstBytes, @Nullable CharSequence firstCharsIfText) {
-        final String expectedRoot = file.getExtension() != null ? ROOT_BY_EXTENSION.get(file.getExtension().toLowerCase()) : null;
+        final String expectedRoot = file.getExtension() != null ? ROOT_BY_EXTENSION.get(file.getExtension().toLowerCase(Locale.ROOT)) : null;
         if (expectedRoot == null || firstCharsIfText == null) return null;
         final String text = firstCharsIfText.toString().stripLeading();
         if (!text.startsWith("<")) return null;

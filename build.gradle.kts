@@ -8,7 +8,7 @@ plugins {
 // Gradle-Version (gradle/wrapper): nicht neuer als die IntelliJ-Version, mit der das Projekt bearbeitet wird –
 // IntelliJ 2026.2 übernimmt mit Gradle 9.8.x die Abhängigkeiten des main-Source-Sets nicht ins IDE-Modell.
 group = "com.herreromarcos.idea"
-version = "0.4.0"
+version = "0.5.0"
 
 repositories {
     mavenCentral()
@@ -50,6 +50,25 @@ intellijPlatform {
         name = "Tapestry 4"
         version = project.version.toString()
         changeNotes = """
+            <b>0.5.0</b>
+            <ul>
+              <li>Checks verified against a running Tapestry 4.1.6 application: every new error is one Tapestry throws
+                  when loading the page</li>
+              <li>Specifications: <code>&lt;component&gt;</code> with both <code>type</code> and <code>copy-of</code>,
+                  <code>copy-of</code> of a component declared later, required parameters with a default value
+                  (also <code>@Parameter</code>), <code>inherit-informal-parameters</code> with components or containers
+                  that allow only formal parameters, a parameter bound under its name and an alias</li>
+              <li>Duplicate parameters (including aliases), assets, beans and properties, properties created by two
+                  elements; duplicate pages, component types, libraries and extensions in applications and libraries</li>
+              <li>Name rules of Tapestry's parser for properties, bindings, pages, component types, library ids and
+                  extensions; library ids <code>framework</code> and <code>application</code> are reserved</li>
+              <li>Templates: implicit ids already declared in the specification or class, a parameter bound twice via
+                  name and alias; reserved parameters bound to an expression and unbound required parameters are now
+                  errors, as in Tapestry</li>
+              <li>Fixed: possible hang with cyclic class inheritance, file type detection of upper-case extensions
+                  under a Turkish locale, <code>&lt;property&gt;</code> of the 3.0 DTD offered as page property,
+                  page references of PageLinks copied via <code>copy-of</code></li>
+            </ul>
             <b>0.4.0</b>
             <ul>
               <li>Performance: caches are no longer discarded on every keystroke, only when specifications,
@@ -120,6 +139,18 @@ intellijPlatform {
 tasks {
     withType<JavaCompile> {
         options.encoding = "UTF-8"
+    }
+
+    // Leistungs- und Lasttest (LargeProjectPerformanceTest) nur auf Anfrage:
+    // gradlew test --tests *LargeProjectPerformanceTest -Pperformance [-Pperformance.pages=6000]
+    test {
+        val performance = providers.gradleProperty("performance")
+        systemProperty("tapestry.performance", performance.isPresent)
+        providers.gradleProperty("performance.pages").orNull?.let { systemProperty("tapestry.performance.pages", it) }
+        if (performance.isPresent) {
+            maxHeapSize = "4g"
+            jvmArgs("-XX:StartFlightRecording=filename=${layout.buildDirectory.get().asFile}/performance.jfr,settings=profile")
+        }
     }
 
     // Das Plugin enthält die Apache-Tapestry-DTDs → LICENSE und NOTICE gehören ins JAR

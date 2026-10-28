@@ -1,7 +1,9 @@
 package com.herreromarcos.idea.tapestry4plugin.highlighting;
 
 import com.herreromarcos.idea.tapestry4plugin.model.ApplicationStateObjects;
+import com.herreromarcos.idea.tapestry4plugin.model.JavaClasses;
 import com.herreromarcos.idea.tapestry4plugin.references.MessageKeyReference;
+import com.intellij.codeInsight.AnnotationUtil;
 import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.lang.properties.psi.PropertiesFile;
@@ -17,11 +19,13 @@ import java.util.List;
 import java.util.Map;
 
 import static com.herreromarcos.idea.tapestry4plugin.TapestryConstants.ANNOTATIONS;
+import static com.herreromarcos.idea.tapestry4plugin.TapestryConstants.ANNOTATION_PARAMETER;
 
 /**
  * Annotationen ohne Wert, deren Schlüssel Tapestry aus dem Methodennamen ableitet (Annotations-Referenz):
  * {@code @Message} → Message-Key, {@code @InjectState}/{@code @InjectStateFlag} → Application State Object.
- * Mit Wert prüfen das die Referenzen auf dem String.
+ * Mit Wert prüfen das die Referenzen auf dem String. Außerdem: {@code @Parameter(required = true)} darf kein
+ * {@code defaultValue} haben ({@code EstablishDefaultParameterValuesVisitor}).
  */
 class AnnotationChecks {
     private static final String MESSAGE = ANNOTATIONS + "Message";
@@ -34,9 +38,14 @@ class AnnotationChecks {
 
     static void checkAnnotation(@NotNull PsiAnnotation annotation, @NotNull AnnotationHolder holder) {
         final String name = annotation.getQualifiedName();
-        if (name == null || !name.startsWith(ANNOTATIONS) || annotation.findDeclaredAttributeValue("value") != null) return;
+        if (name == null || !name.startsWith(ANNOTATIONS)) return;
         if (!(annotation.getOwner() instanceof final PsiElement owner) || !(owner.getParent() instanceof final PsiMethod method)) return;
         final PsiElement anchor = annotation.getNameReferenceElement() != null ? annotation.getNameReferenceElement() : annotation;
+        if (ANNOTATION_PARAMETER.equals(name)) {
+            checkRequiredWithDefault(annotation, method, anchor, holder);
+            return;
+        }
+        if (annotation.findDeclaredAttributeValue("value") != null) return;
         final String derived = keyName(method.getName());
         switch (name) {
             case MESSAGE -> checkMessageKey(method, derived, anchor, holder);
@@ -45,6 +54,15 @@ class AnnotationChecks {
             default -> {
             }
         }
+    }
+
+    private static void checkRequiredWithDefault(PsiAnnotation annotation, PsiMethod method, PsiElement anchor, AnnotationHolder holder) {
+        if (!Boolean.TRUE.equals(AnnotationUtil.getBooleanAttributeValue(annotation, "required"))
+                || StringUtil.isEmpty(AnnotationUtil.getStringAttributeValue(annotation, "defaultValue"))) return;
+        final String explicitName = StringUtil.nullize(AnnotationUtil.getStringAttributeValue(annotation, "name"));
+        final String parameter = explicitName != null ? explicitName : JavaClasses.propertyName(method);
+        holder.newAnnotation(HighlightSeverity.ERROR, "Required parameter '%s' must not have a default value"
+                .formatted(String.valueOf(parameter))).range(anchor).create();
     }
 
     private static void checkMessageKey(PsiMethod method, String key, PsiElement anchor, AnnotationHolder holder) {

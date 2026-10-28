@@ -100,4 +100,41 @@ public class ReviewFindingsTest extends TapestryTestCase {
     }
 
     // ---- Neue Aktion: ungültiger Klassenname darf kein kaputtes XML erzeugen (siehe NewTapestryElementAction)
+
+    // ---- Zweites Review: Zyklen, 3.0-DTD, copy-of
+
+    public void testCyclicInheritanceDoesNotHang() {
+        myFixture.addFileToProject("com/example/CycleA.java", "package com.example; public abstract class CycleA extends CycleB {}");
+        myFixture.addFileToProject("com/example/CycleB.java", "package com.example; public abstract class CycleB extends CycleA {}");
+        myFixture.addFileToProject("Cycle.page", page("<page-specification class=\"com.example.CycleA\"/>"));
+        // die Suche nach dem jwcid-Attributnamen geht die Oberklassen nach @Meta durch
+        configure("Cycle.html", "<html><body><span jwcid=\"@Insert\" value=\"ognl:anything\"/></body></html>");
+        assertNotNull(myFixture.doHighlighting());
+    }
+
+    public void testTapestry30PropertyIsNotAPageProperty() {
+        myFixture.addFileToProject("Old30.page", """
+                <?xml version="1.0"?>
+                <!DOCTYPE page-specification PUBLIC "-//Apache Software Foundation//Tapestry Specification 3.0//EN"
+                  "http://jakarta.apache.org/tapestry/dtd/Tapestry_3_0.dtd">
+                <page-specification class="com.example.Home">
+                  <property name="org.apache.tapestry.some-meta" value="x"/>
+                  <property-specification name="counter" type="int"/>
+                </page-specification>
+                """);
+        configure("Old30.html", "<html><body><span jwcid=\"@Insert\" value=\"ognl:<caret>\"/></body></html>");
+        final List<String> items = completeAtCaret();
+        assertTrue(items.toString(), items.contains("counter"));
+        assertFalse(items.toString(), items.contains("org.apache.tapestry.some-meta"));
+    }
+
+    public void testPageLinkCopiedViaCopyOfResolvesPage() {
+        configure("Links.page", page("""
+                <page-specification class="com.example.Home">
+                  <component id="link" type="PageLink"><binding name="page" value="literal:Home"/></component>
+                  <component id="copy" copy-of="link"><binding name="page" value="literal:Ho<caret>me"/></component>
+                </page-specification>
+                """));
+        assertEquals("Home.page", ((PsiFile) resolveAtCaret()).getName());
+    }
 }

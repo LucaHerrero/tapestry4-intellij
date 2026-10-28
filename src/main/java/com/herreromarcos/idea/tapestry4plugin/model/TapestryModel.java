@@ -1,7 +1,6 @@
 package com.herreromarcos.idea.tapestry4plugin.model;
 
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiClass;
@@ -10,12 +9,12 @@ import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.search.FilenameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.util.CachedValue;
 import com.intellij.psi.util.CachedValueProvider;
 import com.intellij.psi.util.CachedValuesManager;
 import com.intellij.psi.xml.XmlFile;
 import com.intellij.psi.xml.XmlTag;
 import com.intellij.util.containers.ContainerUtil;
+import com.intellij.util.indexing.FileBasedIndex;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -28,7 +27,6 @@ import static com.herreromarcos.idea.tapestry4plugin.TapestryConstants.*;
  * Ergebnisse werden über {@link CachedValuesManager} gecacht.
  */
 public class TapestryModel {
-    private static final Key<CachedValue<Map<String, List<VirtualFile>>>> SPECS_BY_CLASS_KEY = Key.create("tapestry4.specsByClass");
 
     private TapestryModel() {
     }
@@ -172,30 +170,18 @@ public class TapestryModel {
 
     // ------------------------------------------------------------------ Klasse -> Spezifikation/Template
 
-    /** Spezifikationen (.page/.jwc), deren class-Attribut auf die Klasse zeigt. */
+    /** Spezifikationen (.page/.jwc) des Projekts, deren class-Attribut auf die Klasse zeigt ({@link SpecClassIndex}). */
     public static @NotNull List<XmlFile> findSpecsForClass(@NotNull PsiClass psiClass) {
         final String fqn = psiClass.getQualifiedName();
         if (fqn == null) return List.of();
         final Project project = psiClass.getProject();
-        final Map<String, List<VirtualFile>> specsByClass = ProjectCache.get(project, SPECS_BY_CLASS_KEY, () -> computeSpecsByClass(project));
+        final Collection<VirtualFile> specs = FileBasedIndex.getInstance()
+                .getContainingFiles(SpecClassIndex.NAME, fqn, GlobalSearchScope.projectScope(project));
         final List<XmlFile> result = new ArrayList<>();
-        for (final PsiFile file : toPsiFiles(project, specsByClass.getOrDefault(fqn, List.of()))) {
+        for (final PsiFile file : toPsiFiles(project, specs)) {
             if (file instanceof final XmlFile xml) result.add(xml);
         }
         return result;
-    }
-
-    private static Map<String, List<VirtualFile>> computeSpecsByClass(Project project) {
-        final Map<String, List<VirtualFile>> map = new HashMap<>();
-        final GlobalSearchScope scope = GlobalSearchScope.projectScope(project);
-        for (final String ext : List.of(EXT_PAGE, EXT_COMPONENT)) {
-            for (final VirtualFile vf : FilenameIndex.getAllFilesByExt(project, ext, scope)) {
-                final XmlTag root = SpecXml.rootTag(project, vf);
-                final String className = root != null ? SpecXml.attr(root, ATTR_CLASS) : null;
-                if (className != null) map.computeIfAbsent(className, k -> new ArrayList<>()).add(vf);
-            }
-        }
-        return map;
     }
 
     /** Templates spezifikationsloser Seiten/Komponenten, deren Paket in *-class-packages steht. */

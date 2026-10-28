@@ -8,8 +8,12 @@ import com.intellij.lang.properties.psi.Property;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
+import com.intellij.psi.impl.source.resolve.reference.impl.providers.FileReference;
+import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.psi.xml.XmlAttributeValue;
+import com.intellij.psi.xml.XmlFile;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -131,10 +135,7 @@ public class DocumentationComplianceTest extends TapestryTestCase {
     }
 
     public void testComponentClassAnnotationControlsInformalParameters() {
-        myFixture.addFileToProject("org/apache/tapestry/annotations/ComponentClass.java", """
-                package org.apache.tapestry.annotations;
-                public @interface ComponentClass { boolean allowBody() default true; boolean allowInformalParameters() default true; }
-                """);
+        addAnnotation("ComponentClass", "boolean allowBody() default true; boolean allowInformalParameters() default true;");
         myFixture.addFileToProject("com/example/Strict.java", """
                 package com.example;
                 @org.apache.tapestry.annotations.ComponentClass(allowInformalParameters = false)
@@ -238,9 +239,9 @@ public class DocumentationComplianceTest extends TapestryTestCase {
                 <page-specification><asset name="logo" path="http://example.com/logo.png"/></page-specification>
                 """));
         final PsiElement value = myFixture.getFile().findElementAt(myFixture.getFile().getText().indexOf("http://example.com"));
-        final XmlAttributeValue attribute = com.intellij.psi.util.PsiTreeUtil.getParentOfType(value, XmlAttributeValue.class);
+        final XmlAttributeValue attribute = PsiTreeUtil.getParentOfType(value, XmlAttributeValue.class);
         assertNotNull(attribute);
-        assertFalse(java.util.Arrays.stream(attribute.getReferences()).anyMatch(r -> r instanceof com.intellij.psi.impl.source.resolve.reference.impl.providers.FileReference));
+        assertFalse(Arrays.stream(attribute.getReferences()).anyMatch(r -> r instanceof FileReference));
     }
 
     // ---- "Configuring Tapestry": jwcid-attribute-name und template-extension
@@ -279,7 +280,7 @@ public class DocumentationComplianceTest extends TapestryTestCase {
                 """));
         myFixture.addFileToProject("Mobile.html", "<html></html>");
         myFixture.addFileToProject("Mobile.htm", "<html></html>");
-        final List<PsiFile> templates = TapestryModel.findTemplatesForSpec((com.intellij.psi.xml.XmlFile) spec);
+        final List<PsiFile> templates = TapestryModel.findTemplatesForSpec((XmlFile) spec);
         assertEquals(1, templates.size());
         assertEquals("Mobile.htm", templates.get(0).getName());
     }

@@ -19,6 +19,7 @@ import java.util.Map;
  * {@code @InjectState("visit")}, {@code @InjectStateFlag("visit")} → {@code <state-object name>} in hivemodule.xml.
  */
 public class StateObjectReference extends TapestryReferenceBase {
+    private static final String ATTR_SCOPE = "scope";
 
     public StateObjectReference(@NotNull PsiElement element, @NotNull TextRange range) {
         super(element, range);
@@ -43,7 +44,7 @@ public class StateObjectReference extends TapestryReferenceBase {
 
     private static String scope(XmlAttributeValue name) {
         final XmlTag stateObject = PsiTreeUtil.getParentOfType(name, XmlTag.class);
-        final String scope = stateObject != null ? stateObject.getAttributeValue("scope") : null;
+        final String scope = stateObject != null ? stateObject.getAttributeValue(ATTR_SCOPE) : null;
         return scope != null ? scope : "";
     }
 

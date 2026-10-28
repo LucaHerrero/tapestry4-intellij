@@ -27,6 +27,7 @@ public class TapestryConstants {
     public static final String TAG_BINDING = "binding";
     public static final String TAG_INHERITED_BINDING = "inherited-binding";
     public static final String TAG_PARAMETER = "parameter";
+    public static final String TAG_RESERVED_PARAMETER = "reserved-parameter";
     public static final String TAG_PROPERTY = "property";
     public static final String TAG_ASSET = "asset";
     public static final String TAG_BEAN = "bean";
@@ -49,6 +50,12 @@ public class TapestryConstants {
     /** Elemente, die einen Parameter einer eingebetteten Komponente binden (4.0 und 3.0). */
     public static final List<String> BINDING_TAGS = List.of(TAG_BINDING, TAG_INHERITED_BINDING, TAG_STATIC_BINDING,
             TAG_MESSAGE_BINDING, TAG_LISTENER_BINDING);
+    /**
+     * Attribute in Spezifikationen ({@code element@attribut}), deren Wert ein Binding-Ausdruck ist; ohne Präfix gilt
+     * dort OGNL bzw. das konfigurierte {@code default-binding-prefix}.
+     */
+    public static final Set<String> SPEC_BINDING_ATTRIBUTES = Set.of("binding@value", "set@value", "property@initial-value",
+            "parameter@default-value");
     /** Elemente, die ein Asset definieren (4.0 und 3.0). */
     public static final List<String> ASSET_TAGS = List.of(TAG_ASSET, TAG_CONTEXT_ASSET, TAG_PRIVATE_ASSET, TAG_EXTERNAL_ASSET);
 
@@ -63,6 +70,16 @@ public class TapestryConstants {
     public static final String ATTR_PROPERTY_NAME = "property-name";
     public static final String ATTR_COPY_OF = "copy-of";
     public static final String ATTR_SPECIFICATION_PATH = "specification-path";
+    public static final String ATTR_ENGINE_CLASS = "engine-class";
+    // <parameter>
+    public static final String ATTR_REQUIRED = "required";
+    public static final String ATTR_ALIASES = "aliases";
+    public static final String ATTR_DEPRECATED = "deprecated";
+    public static final String ATTR_DEFAULT_VALUE = "default-value";
+
+    // Script-Spezifikationen (.script)
+    public static final String TAG_INCLUDE_SCRIPT = "include-script";
+    public static final String ATTR_RESOURCE_PATH = "resource-path";
 
     // Lokalisierungs-Direktive im Template: <span key="..." raw="true">
     public static final String TAG_SPAN = "span";
@@ -70,6 +87,8 @@ public class TapestryConstants {
 
     public static final String WEB_INF = "WEB-INF";
     public static final String PAGE_LINK = "PageLink";
+    /** Parameter von PageLink, der den Namen der Zielseite enthält. */
+    public static final String PARAMETER_PAGE = "page";
     public static final String WEB_XML = "web.xml";
 
     // HiveMind: Application State Objects
@@ -79,6 +98,7 @@ public class TapestryConstants {
 
     public static final String FRAMEWORK_LIBRARY = "Framework.library";
     public static final String FRAMEWORK_NAMESPACE = "framework";
+    public static final String APPLICATION_NAMESPACE = "application";
 
     public static final String META_PAGE_PACKAGES = "org.apache.tapestry.page-class-packages";
     public static final String META_COMPONENT_PACKAGES = "org.apache.tapestry.component-class-packages";

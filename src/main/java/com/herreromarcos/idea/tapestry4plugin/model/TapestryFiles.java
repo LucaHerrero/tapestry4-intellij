@@ -5,10 +5,7 @@ import com.intellij.lang.html.HTMLLanguage;
 import com.intellij.lang.xhtml.XHTMLLanguage;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiFile;
-import com.intellij.psi.xml.XmlDoctype;
-import com.intellij.psi.xml.XmlDocument;
 import com.intellij.psi.xml.XmlFile;
-import com.intellij.psi.xml.XmlProlog;
 import com.intellij.psi.xml.XmlTag;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,10 +32,7 @@ public class TapestryFiles {
     }
 
     private static boolean hasTapestryDoctype(XmlFile file) {
-        final XmlDocument document = file.getDocument();
-        final XmlProlog prolog = document != null ? document.getProlog() : null;
-        final XmlDoctype doctype = prolog != null ? prolog.getDoctype() : null;
-        final String publicId = doctype != null ? doctype.getPublicId() : null;
+        final String publicId = SpecXml.publicId(file);
         return publicId != null && publicId.contains("Tapestry");
     }
 

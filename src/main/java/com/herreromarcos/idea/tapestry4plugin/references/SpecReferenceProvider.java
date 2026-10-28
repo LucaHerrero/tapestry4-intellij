@@ -1,6 +1,8 @@
 package com.herreromarcos.idea.tapestry4plugin.references;
 
 import com.herreromarcos.idea.tapestry4plugin.model.BindingExpression;
+import com.herreromarcos.idea.tapestry4plugin.model.ComponentModel;
+import com.herreromarcos.idea.tapestry4plugin.model.SpecXml;
 import com.herreromarcos.idea.tapestry4plugin.model.TapestryConfiguration;
 import com.herreromarcos.idea.tapestry4plugin.model.TapestryFiles;
 import com.herreromarcos.idea.tapestry4plugin.model.TapestryRegistry;
@@ -45,20 +47,22 @@ class SpecReferenceProvider extends PsiReferenceProvider {
         final int offset = valueRange.getStartOffset();
 
         if (ATTR_CLASS.equals(attrName) && CLASS_ATTRIBUTE_TAGS.contains(tagName)
-                || "engine-class".equals(attrName) && ROOT_APPLICATION.equals(tagName)) {
+                || ATTR_ENGINE_CLASS.equals(attrName) && ROOT_APPLICATION.equals(tagName)) {
             return classReferences(value, text, offset);
         }
         if (ATTR_SPECIFICATION_PATH.equals(attrName) && SPEC_PATH_TAGS.contains(tagName)) {
             return SpecPathReferences.create(value, text, offset, false);
         }
-        return switch ("%s@%s".formatted(tagName, attrName)) {
+        final String key = SpecXml.attributeKey(tagName, attrName);
+        if (SPEC_BINDING_ATTRIBUTES.contains(key)) {
+            return TAG_BINDING.equals(tagName) ? bindingValueReferences(value, tag, text, offset)
+                    : BindingReferences.create(value, text, offset, TapestryConfiguration.getDefaultBindingPrefix(element.getContainingFile()));
+        }
+        return switch (key) {
             case "component@type" -> single(new ComponentTypeReference(value, valueRange));
             case "component@copy-of" -> single(new ComponentIdReference(value, valueRange, ComponentIdReference.Scope.COPY_OF));
             case "binding@name", "inherited-binding@name", "static-binding@name", "message-binding@name",
                  "listener-binding@name" -> single(new ParameterNameReference(value, valueRange));
-            case "binding@value" -> bindingValueReferences(value, tag, text, offset);
-            case "set@value", "property@initial-value", "parameter@default-value" ->
-                    BindingReferences.create(value, text, offset, TapestryConfiguration.getDefaultBindingPrefix(element.getContainingFile()));
             case "bean@class" -> beanClassReferences(value, text, offset);
             case "inject@object" -> injectReferences(value, tag, text, offset, valueRange);
             case "asset@path" -> SpecPathReferences.create(value, text, offset, true);
@@ -76,8 +80,8 @@ class SpecReferenceProvider extends PsiReferenceProvider {
         final String defaultPrefix = TapestryConfiguration.getDefaultBindingPrefix(value.getContainingFile());
         final XmlTag component = bindingTag.getParentTag();
         final BindingExpression binding = BindingExpression.parse(text, value);
-        if (TAG_PAGE.equals(bindingTag.getAttributeValue(ATTR_NAME)) && PREFIX_LITERAL.equals(binding.effectivePrefix(defaultPrefix))
-                && component != null && TapestryRegistry.isPageLink(component.getAttributeValue(ATTR_TYPE))) {
+        if (PARAMETER_PAGE.equals(bindingTag.getAttributeValue(ATTR_NAME)) && PREFIX_LITERAL.equals(binding.effectivePrefix(defaultPrefix))
+                && component != null && TapestryRegistry.isPageLink(ComponentModel.getComponentTypeOfSpecTag(component))) {
             return single(new PageReference(value, TextRange.create(offset + binding.expressionStart(), offset + text.length())));
         }
         return BindingReferences.create(value, text, offset, defaultPrefix);

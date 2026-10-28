@@ -4,6 +4,8 @@ import com.intellij.ide.highlighter.XmlFileType;
 import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.psi.PsiFile;
 
+import java.util.Locale;
+
 /** .page, .jwc, .application, .library und .script sind nur dann XML, wenn sie wirklich Tapestry-Spezifikationen sind. */
 public class FileTypeDetectionTest extends TapestryTestCase {
 
@@ -31,6 +33,17 @@ public class FileTypeDetectionTest extends TapestryTestCase {
         assertNotXml("deploy.script", "#!/bin/sh\necho hallo\n");
         assertNotXml("Other.page", "<html><body/></html>");
         assertNotXml("Wrong.jwc", "<page-specification/>");
+    }
+
+    public void testUpperCaseExtensionWithTurkishLocale() {
+        final Locale original = Locale.getDefault();
+        Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+        try {
+            // "LIBRARY".toLowerCase() ergäbe unter türkischer Locale "lıbrary"
+            assertXml("Upper.LIBRARY", "<library-specification/>");
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 
     private void assertXml(String path, String text) {

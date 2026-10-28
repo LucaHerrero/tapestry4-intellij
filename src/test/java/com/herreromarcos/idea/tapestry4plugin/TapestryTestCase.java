@@ -134,13 +134,36 @@ public abstract class TapestryTestCase extends LightJavaCodeInsightFixtureTestCa
                 .toList();
     }
 
-    /** Legt die Datei an und liefert alle Meldungen ab Warnung. */
-    protected List<String> warnings(String path, String text) {
-        configure(path, text);
+    /** Alle Meldungen ab Warnung in der geöffneten Datei. */
+    protected List<String> warnings() {
         return highlightingMessages(HighlightSeverity.WARNING);
     }
 
-    protected boolean hasErrorOn() {
+    /** Legt die Datei an und liefert alle Meldungen ab Warnung. */
+    protected List<String> warnings(String path, String text) {
+        configure(path, text);
+        return warnings();
+    }
+
+    /** Alle Fehlermeldungen in der geöffneten Datei. */
+    protected List<String> errors() {
+        return highlightingMessages(HighlightSeverity.ERROR);
+    }
+
+    /** Legt die Datei an und liefert alle Fehlermeldungen. */
+    protected List<String> errors(String path, String text) {
+        configure(path, text);
+        return errors();
+    }
+
+    /** Stub einer Tapestry-Annotation, z.B. {@code addAnnotation("Message", "String value() default \"\";")}. */
+    protected void addAnnotation(String name, String body) {
+        myFixture.addFileToProject("org/apache/tapestry/annotations/%s.java".formatted(name),
+                "package org.apache.tapestry.annotations; public @interface %s { %s }".formatted(name, body));
+    }
+
+    /** Meldet die DTD-Validierung das Element {@code <unknown-element>} als Fehler? */
+    protected boolean hasUnknownElementError() {
         return myFixture.doHighlighting().stream()
                 .anyMatch(info -> info.getSeverity() == HighlightSeverity.ERROR && info.getText().contains("unknown-element"));
     }

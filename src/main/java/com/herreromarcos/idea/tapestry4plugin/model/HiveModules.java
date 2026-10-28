@@ -31,6 +31,8 @@ public class HiveModules {
     private static final String TAG_MODULE = "module";
     private static final String TAG_SUB_MODULE = "sub-module";
     private static final String TAG_CONTRIBUTION = "contribution";
+    private static final String ATTR_DESCRIPTOR = "descriptor";
+    private static final String ATTR_CONFIGURATION_ID = "configuration-id";
 
     private HiveModules() {
     }
@@ -87,13 +89,13 @@ public class HiveModules {
     }
 
     private static @Nullable VirtualFile findSubModule(VirtualFile descriptor, XmlTag subModule) {
-        final String path = SpecXml.attr(subModule, "descriptor");
+        final String path = SpecXml.attr(subModule, ATTR_DESCRIPTOR);
         return path != null && descriptor.getParent() != null ? descriptor.getParent().findFileByRelativePath(path) : null;
     }
 
     /** Ohne Punkt ist die Configuration-ID relativ zum Modul. */
     private static String qualifiedConfigurationId(String moduleId, XmlTag contribution) {
-        final String configuration = StringUtil.notNullize(SpecXml.attr(contribution, "configuration-id"));
+        final String configuration = StringUtil.notNullize(SpecXml.attr(contribution, ATTR_CONFIGURATION_ID));
         return configuration.contains(".") ? configuration : "%s.%s".formatted(moduleId, configuration);
     }
 }

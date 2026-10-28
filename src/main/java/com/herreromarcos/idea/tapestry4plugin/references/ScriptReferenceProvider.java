@@ -25,7 +25,7 @@ class ScriptReferenceProvider extends PsiReferenceProvider {
             return PsiReference.EMPTY_ARRAY;
         }
         final XmlTag tag = attribute.getParent();
-        if (tag == null || !"include-script".equals(tag.getName()) || !"resource-path".equals(attribute.getName())
+        if (tag == null || !TapestryConstants.TAG_INCLUDE_SCRIPT.equals(tag.getName()) || !TapestryConstants.ATTR_RESOURCE_PATH.equals(attribute.getName())
                 || !isScriptFile(element.getContainingFile())) {
             return PsiReference.EMPTY_ARRAY;
         }

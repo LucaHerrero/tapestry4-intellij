@@ -55,7 +55,9 @@ public class TapestryConfiguration {
     public static @NotNull List<String> findMetaList(@NotNull TapestryContext ctx, @NotNull String key) {
         final String specMeta = SpecXml.meta(SpecXml.rootTag(ctx.spec()), key);
         if (specMeta != null) return SpecXml.splitList(specMeta);
-        for (PsiClass cls = ctx.declaredClass(); cls != null; cls = cls.getSuperClass()) {
+        // Schutz gegen zyklische Vererbung im (fehlerhaften) Quelltext
+        final Set<PsiClass> visited = new HashSet<>();
+        for (PsiClass cls = ctx.declaredClass(); cls != null && visited.add(cls); cls = cls.getSuperClass()) {
             final String classMeta = JavaClasses.metaAnnotationValue(cls, key);
             if (classMeta != null) return SpecXml.splitList(classMeta);
         }

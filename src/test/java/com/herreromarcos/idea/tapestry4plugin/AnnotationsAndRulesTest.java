@@ -1,12 +1,16 @@
 package com.herreromarcos.idea.tapestry4plugin;
 
 import com.intellij.lang.annotation.HighlightSeverity;
+import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.lang.properties.psi.Property;
+import com.intellij.openapi.vfs.VfsUtil;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiMethod;
 import com.intellij.psi.xml.XmlAttributeValue;
 
+import java.io.IOException;
 import java.util.List;
 
 /** Referenzen in Annotationen, Skripten und validators: sowie die Regeln aus dem zweiten Doku-Abgleich. */
@@ -25,11 +29,11 @@ public class AnnotationsAndRulesTest extends TapestryTestCase {
                 }
                 """.formatted(member);
         final int caret = text.indexOf(CARET);
-        final com.intellij.openapi.vfs.VirtualFile file = myFixture.findFileInTempDir("com/example/Home.java");
-        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(getProject(), () -> {
+        final VirtualFile file = myFixture.findFileInTempDir("com/example/Home.java");
+        WriteCommandAction.runWriteCommandAction(getProject(), () -> {
             try {
-                com.intellij.openapi.vfs.VfsUtil.saveText(file, text.replace(CARET, ""));
-            } catch (final java.io.IOException e) {
+                VfsUtil.saveText(file, text.replace(CARET, ""));
+            } catch (final IOException e) {
                 throw new RuntimeException(e);
             }
         });

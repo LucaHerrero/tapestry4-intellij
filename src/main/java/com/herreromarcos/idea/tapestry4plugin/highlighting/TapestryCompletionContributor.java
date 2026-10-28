@@ -3,6 +3,7 @@ package com.herreromarcos.idea.tapestry4plugin.highlighting;
 import com.herreromarcos.idea.tapestry4plugin.TapestryConstants;
 import com.herreromarcos.idea.tapestry4plugin.TapestryIcons;
 import com.herreromarcos.idea.tapestry4plugin.model.BindingPrefixes;
+import com.herreromarcos.idea.tapestry4plugin.model.SpecXml;
 import com.herreromarcos.idea.tapestry4plugin.model.TapestryConfiguration;
 import com.herreromarcos.idea.tapestry4plugin.model.TapestryFiles;
 import com.intellij.codeInsight.AutoPopupController;
@@ -20,12 +21,8 @@ import com.intellij.psi.xml.XmlTag;
 import com.intellij.util.ProcessingContext;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Set;
-
 /** Bietet Binding-Präfixe ({@code ognl:}, {@code listener:}, {@code message:} …) in Parameterwerten an. */
 public class TapestryCompletionContributor extends CompletionContributor {
-    private static final Set<String> SPEC_BINDING_ATTRIBUTES = Set.of("binding.value", "set.value", "property.initial-value",
-            "parameter.default-value");
 
     public TapestryCompletionContributor() {
         extend(CompletionType.BASIC, PlatformPatterns.psiElement().inside(XmlPatterns.xmlAttributeValue()), new CompletionProvider<>() {
@@ -67,6 +64,7 @@ public class TapestryCompletionContributor extends CompletionContributor {
         if (TapestryFiles.isTemplateFile(file)) {
             return !TapestryConfiguration.isJwcidAttribute(attribute) && TapestryConfiguration.isComponentTag(tag);
         }
-        return TapestryFiles.isSpecFile(file) && SPEC_BINDING_ATTRIBUTES.contains("%s.%s".formatted(tag.getName(), attribute.getName()));
+        return TapestryFiles.isSpecFile(file)
+                && TapestryConstants.SPEC_BINDING_ATTRIBUTES.contains(SpecXml.attributeKey(tag.getName(), attribute.getName()));
     }
 }

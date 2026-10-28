@@ -41,9 +41,12 @@ class ComponentUsageChecks {
      * <ul>
      *   <li>veralteter Parameter, Binden über einen Alias → Warnung</li>
      *   <li>Parameter schon in der Spezifikation gebunden und kein Literal → Fehler</li>
-     *   <li>reservierter Name, kein Literal → Warnung (wird ignoriert; Literale dienen der WYSIWYG-Vorschau)</li>
      *   <li>informeller Parameter bei {@code allow-informal-parameters="no"}, kein Literal → Fehler (nur im Template)</li>
+     *   <li>reservierter Name, kein Literal → im Template ein Fehler, in der Spezifikation eine Warnung (Tapestry
+     *       überspringt das Binding); Literale dienen der WYSIWYG-Vorschau</li>
      * </ul>
+     * Reihenfolge wie in Tapestry ({@code ComponentTemplateLoaderLogic.validate}, {@code PageLoader.bind}): erst
+     * informelle Parameter, dann reservierte Namen.
      */
     static void checkParameterUsage(AnnotationHolder holder, XmlFile spec, String type, String name,
                                     boolean literal, Set<String> specBound, PsiElement anchor) {
@@ -63,12 +66,21 @@ class ComponentUsageChecks {
             return;
         }
         if (literal) return;
-        if (ComponentModel.getReservedParameters(spec).contains(ComponentModel.normalize(name))) {
-            holder.newAnnotation(HighlightSeverity.WARNING, "'%s' is reserved by component '%s' and will be ignored".formatted(name, type))
-                    .range(anchor).create();
-        } else if (!ComponentModel.allowsInformalParameters(spec) && anchor instanceof XmlToken) {
+        final boolean template = anchor instanceof XmlToken;
+        if (!ComponentModel.allowsInformalParameters(spec)) {
             // nur im Template; in der Spezifikation meldet das bereits die Parameter-Referenz
-            holder.newAnnotation(HighlightSeverity.ERROR, "Component '%s' does not allow informal parameters".formatted(type))
+            if (template) {
+                holder.newAnnotation(HighlightSeverity.ERROR, "Component '%s' does not allow informal parameters".formatted(type))
+                        .range(anchor).create();
+            }
+            return;
+        }
+        if (!ComponentModel.getReservedParameters(spec).contains(ComponentModel.normalize(name))) return;
+        if (template) {
+            holder.newAnnotation(HighlightSeverity.ERROR, "'%s' is reserved by component '%s' and must not be bound in the template"
+                    .formatted(name, type)).range(anchor).create();
+        } else {
+            holder.newAnnotation(HighlightSeverity.WARNING, "'%s' is reserved by component '%s' and will be ignored".formatted(name, type))
                     .range(anchor).create();
         }
     }

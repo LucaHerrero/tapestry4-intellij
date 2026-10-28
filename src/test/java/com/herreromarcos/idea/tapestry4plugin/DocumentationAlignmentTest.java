@@ -1,7 +1,6 @@
 package com.herreromarcos.idea.tapestry4plugin;
 
 import com.herreromarcos.idea.tapestry4plugin.model.TapestryModel;
-import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.xml.XmlAttributeValue;
@@ -14,19 +13,6 @@ import java.util.List;
  * Jeder Test nennt das Kapitel, aus dem die Regel stammt.
  */
 public class DocumentationAlignmentTest extends TapestryTestCase {
-
-    private void addAnnotation(String name, String body) {
-        myFixture.addFileToProject("org/apache/tapestry/annotations/%s.java".formatted(name),
-                "package org.apache.tapestry.annotations; public @interface %s { %s }".formatted(name, body));
-    }
-
-    private List<String> errors() {
-        return highlightingMessages(HighlightSeverity.ERROR);
-    }
-
-    private List<String> warningsAndErrors() {
-        return highlightingMessages(HighlightSeverity.WARNING);
-    }
 
     // ---- "Templates": jwcid="id@Type" deklariert eine eingebettete Komponente
 
@@ -80,7 +66,7 @@ public class DocumentationAlignmentTest extends TapestryTestCase {
                 """);
         myFixture.addFileToProject("Typed.page", page("<page-specification class=\"com.example.Typed\"/>"));
         configure("Typed.html", "<html><body><span jwcid=\"greeting\"/></body></html>");
-        final List<String> warnings = warningsAndErrors();
+        final List<String> warnings = warnings();
         assertTrue(warnings.toString(), warnings.contains("Required parameter 'value' of component 'Insert' is not bound"));
     }
 
@@ -153,7 +139,7 @@ public class DocumentationAlignmentTest extends TapestryTestCase {
                   <span jwcid="@Insert" value="message:ignored-title"/>
                 </body></html>
                 """);
-        final List<String> warnings = warningsAndErrors();
+        final List<String> warnings = warnings();
         assertFalse(warnings.toString(), warnings.contains("Message key 'shop-title' not found"));
         assertTrue(warnings.toString(), warnings.contains("Message key 'ignored-title' not found"));
     }
@@ -178,7 +164,7 @@ public class DocumentationAlignmentTest extends TapestryTestCase {
         final PsiElement target = resolveAtCaret();
         assertInstanceOf(target, XmlAttributeValue.class);
         assertSame(spec, target.getContainingFile());
-        assertEmpty(warningsAndErrors());
+        assertEmpty(warnings());
     }
 
     // ---- Annotations-Referenz: @Message, @InjectState, @InjectStateFlag ohne Wert
@@ -196,7 +182,7 @@ public class DocumentationAlignmentTest extends TapestryTestCase {
                 """);
         myFixture.addFileToProject("Derived.page", page("<page-specification class=\"com.example.Derived\"/>"));
         myFixture.configureFromExistingVirtualFile(myFixture.findClass("com.example.Derived").getContainingFile().getVirtualFile());
-        final List<String> warnings = warningsAndErrors();
+        final List<String> warnings = warnings();
         assertTrue(warnings.toString(), warnings.contains("Message key 'missing-text' (derived from getMissingText) not found"));
         assertFalse(warnings.toString(), warnings.stream().anyMatch(m -> m.contains("page-title")));
     }
@@ -222,7 +208,7 @@ public class DocumentationAlignmentTest extends TapestryTestCase {
                 """);
         myFixture.addFileToProject("Stateful.page", page("<page-specification class=\"com.example.Stateful\"/>"));
         myFixture.configureFromExistingVirtualFile(myFixture.findClass("com.example.Stateful").getContainingFile().getVirtualFile());
-        final List<String> warnings = warningsAndErrors();
+        final List<String> warnings = warnings();
         assertTrue(warnings.toString(), warnings.contains("Unknown application state object 'shopping-cart' (derived from getShoppingCart)"));
         assertEquals(warnings.toString(), 1, warnings.stream().filter(m -> m.contains("application state object")).count());
     }

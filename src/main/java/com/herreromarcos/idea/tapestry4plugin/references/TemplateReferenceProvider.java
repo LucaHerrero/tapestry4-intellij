@@ -19,7 +19,7 @@ import com.intellij.util.ProcessingContext;
 import org.jetbrains.annotations.NotNull;
 
 import static com.herreromarcos.idea.tapestry4plugin.TapestryConstants.ATTR_KEY;
-import static com.herreromarcos.idea.tapestry4plugin.TapestryConstants.TAG_PAGE;
+import static com.herreromarcos.idea.tapestry4plugin.TapestryConstants.PARAMETER_PAGE;
 import static com.herreromarcos.idea.tapestry4plugin.references.TapestryReferenceBase.single;
 
 /**
@@ -52,7 +52,7 @@ class TemplateReferenceProvider extends PsiReferenceProvider {
         }
 
         final BindingExpression binding = BindingExpression.parse(text, value);
-        if (TAG_PAGE.equalsIgnoreCase(attribute.getName()) && binding.isLiteral() && !DumbService.isDumb(element.getProject())
+        if (PARAMETER_PAGE.equalsIgnoreCase(attribute.getName()) && binding.isLiteral() && !DumbService.isDumb(element.getProject())
                 && TapestryRegistry.isPageLink(ComponentModel.getComponentTypeOfTag(tag))) {
             final TextRange range = TextRange.create(offset + binding.expressionStart(), offset + text.length());
             return single(new PageReference(value, range));
