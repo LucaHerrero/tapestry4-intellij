@@ -10,7 +10,7 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.LangDataKeys;
 import com.intellij.openapi.command.WriteCommandAction;
-import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.util.text.StringUtil;
@@ -93,9 +93,9 @@ public abstract class NewTapestryElementAction extends AnAction {
         });
         final PsiFile template = directory.findFile(templateName);
         if (template != null && template.getVirtualFile() != null) {
-            FileEditorManager.getInstance(project).openFile(template.getVirtualFile(), false);
+            new OpenFileDescriptor(project, template.getVirtualFile()).navigate(false);
         }
-        if (created.getVirtualFile() != null) FileEditorManager.getInstance(project).openFile(created.getVirtualFile(), true);
+        if (created.getVirtualFile() != null) new OpenFileDescriptor(project, created.getVirtualFile()).navigate(true);
     }
 
     private String specification(String className) {
